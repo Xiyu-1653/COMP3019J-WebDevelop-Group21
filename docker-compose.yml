@@ -1,0 +1,26 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: knowbook-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: knowbook_dev_root
+      MYSQL_DATABASE: knowbook
+      MYSQL_USER: knowbook
+      MYSQL_PASSWORD: knowbook_dev
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - knowbook_mysql_data:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uknowbook", "-pknowbook_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  knowbook_mysql_data:
