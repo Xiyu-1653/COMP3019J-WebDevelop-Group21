@@ -11,7 +11,6 @@ The database lives in this repository as SQL files. After the team points `DATAB
 | `database/01_schema.sql` | Tables, keys, checks, indexes, triggers |
 | `database/02_seed.sql` | Demo users, titles, copies, loans, reservations, fees |
 | `scripts/init_db.py` | Creates/resets the database from those files |
-| `docker-compose.yml` | Optional local MySQL 8 if a shared host is not ready |
 
 ## Shared MySQL (recommended for the team)
 
@@ -45,16 +44,7 @@ Password for every seed account: `KnowBook123`
 | `dave` | undergraduate | Reserved copy waiting for collection |
 | `eve` | undergraduate | Current loan on Algorithms |
 
-## Optional local Docker
+## C module demo
 
-If Docker Desktop is installed and you only need a private copy:
-
-```
-docker compose up -d
-```
-
-Then use:
-
-```
-DATABASE_URL=mysql+pymysql://knowbook:knowbook_dev@127.0.0.1:3307/knowbook
-```
+The circulation desk demo runs with Python, Flask and a local or shared MySQL instance.
+See the [demo runbook](borrow_return/README.md) for setup and the borrow/return walkthrough.
