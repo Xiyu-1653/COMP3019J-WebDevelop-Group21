@@ -1,14 +1,9 @@
 """Local demonstration of the Know Book circulation desk."""
 
-import os
-
-import pymysql
 from flask import Flask, redirect, render_template, request, url_for
-from pymysql.cursors import DictCursor
 
-from scripts.init_db import load_env, parse_database_url
+from common.db import connect
 
-load_env()
 app = Flask(__name__)
 DEMO_BARCODE = "KB-0001"
 DEMO_LIBRARIAN = 1
@@ -27,25 +22,6 @@ COPY_QUERY = """
 
 class DeskError(Exception):
     """A business rule prevented the requested operation."""
-
-
-def connect():
-    database_url = os.environ.get("DATABASE_URL", "").strip()
-    if database_url:
-        return pymysql.connect(
-            **parse_database_url(database_url),
-            charset="utf8mb4",
-            cursorclass=DictCursor,
-        )
-    return pymysql.connect(
-        host=os.environ.get("DB_HOST", "127.0.0.1"),
-        port=int(os.environ.get("DB_PORT", "3306")),
-        user=os.environ.get("DB_USER", "knowbook"),
-        password=os.environ["DB_PASSWORD"],
-        database=os.environ.get("DB_NAME", "knowbook"),
-        charset="utf8mb4",
-        cursorclass=DictCursor,
-    )
 
 
 def desk_page(error=None):

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Know Book · Catalogue</title>
+  <style>
+    body { font: 1rem/1.55 system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #17233a; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .55rem; border-bottom: 1px solid #d4dce8; }
+    .muted { color: #5b6b83; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Know Book · Catalogue</h1>
+    <p class="muted">{{ total }} {{ 'title' if total == 1 else 'titles' }} in the catalogue.</p>
+    <table>
+      <thead>
+        <tr><th>Title</th><th>Author</th><th>Category</th><th>Available</th></tr>
+      </thead>
+      <tbody>
+        {% for t in titles %}
+          <tr>
+            <td><a href="{{ url_for('title_detail', title_id=t.title_id) }}">{{ t.title }}</a></td>
+            <td>{{ t.author }}</td>
+            <td>{{ t.category }}</td>
+            <td>{{ t.available_copies }} / {{ t.total_copies }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">No titles in the catalogue yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

@@ -44,6 +44,17 @@ Password for every seed account: `KnowBook123`
 | `dave` | undergraduate | Reserved copy waiting for collection |
 | `eve` | undergraduate | Current loan on Algorithms |
 
+## Catalogue module
+
+The Catalogue backend (Stage 1) reads `title` and `copy` records through the shared
+`common/db.py` connection helper. Run it with:
+
+   ```
+   python -m flask --app catalogue.app run --port 5082
+   ```
+
+See [catalogue/README.md](catalogue/README.md) for the query functions and tests.
+
 ## C module demo
 
 The circulation desk demo runs with Python, Flask and a local or shared MySQL instance.

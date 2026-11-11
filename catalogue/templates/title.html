@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Know Book · Title</title>
+  <style>
+    body { font: 1rem/1.55 system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; color: #17233a; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .55rem; border-bottom: 1px solid #d4dce8; }
+    dl { display: grid; grid-template-columns: 10rem 1fr; row-gap: .35rem; }
+    dt { font-weight: 600; }
+    dd { margin: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    {% if title %}
+      <h1>{{ title.title }}</h1>
+      <p>{{ title.author }} · {{ title.category }}</p>
+      <dl>
+        <dt>ISBN</dt><dd>{{ title.isbn }}</dd>
+        <dt>Description</dt><dd>{{ title.description or '—' }}</dd>
+        <dt>Digital version</dt><dd>{{ 'Yes' if title.has_digital_version else 'No' }}</dd>
+        <dt>Available copies</dt><dd>{{ title.available_copies }} / {{ title.total_copies }}</dd>
+      </dl>
+
+      <h2>Physical copies</h2>
+      <table>
+        <thead><tr><th>Barcode</th><th>Status</th><th>Location</th></tr></thead>
+        <tbody>
+          {% for c in copies %}
+            <tr>
+              <td>{{ c.barcode }}</td>
+              <td>{{ c.status | replace('_', ' ') | capitalize }}</td>
+              <td>{{ c.location or '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3">No physical copies registered.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p><a href="{{ url_for('catalogue_index') }}">Back to catalogue</a></p>
+    {% else %}
+      <h1>Title not found</h1>
+      <p><a href="{{ url_for('catalogue_index') }}">Back to catalogue</a></p>
+    {% endif %}
+  </main>
+</body>
+</html>
