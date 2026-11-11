@@ -55,6 +55,7 @@ CREATE TABLE title (
     category             VARCHAR(80)  NOT NULL,
     description          TEXT         NULL,
     has_digital_version  TINYINT(1)   NOT NULL DEFAULT 0,
+    cover_url            VARCHAR(500) NULL,
     created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (title_id),
     UNIQUE KEY uk_title_isbn (isbn),

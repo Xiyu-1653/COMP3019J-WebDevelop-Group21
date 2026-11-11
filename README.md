@@ -67,12 +67,69 @@ Open http://127.0.0.1:5000/
 | Overdue | `/desk/overdue` |
 | Inventory | `/inventory` |
 
-The website loads a module only if that package exists in the current working tree. Merge `main` into your feature branch, then run the shell on that branch. You do not have to merge the feature back into `main` to try it.
+## Connect a feature branch to main
 
-| Branch | Package the shell looks for |
-|--------|-----------------------------|
-| `catalogue` | `catalogue/` |
-| `feature/reservation-inventory` | `reservation_management/` |
-| `Borrow_Return` / `main` | `borrow_return/` |
+`main` is only the website shell: routes, navigation and placeholders. Git branches cannot call each other at runtime. To see your module inside the shared site, **merge `main` into your branch**. Do not merge your branch into `main` until the module is ready.
 
-The older circulation demo in `borrow_return/` is still available. See [borrow_return/README.md](borrow_return/README.md).
+```powershell
+git checkout YOUR_BRANCH
+git pull origin YOUR_BRANCH
+git merge main
+```
+
+If GitHub `main` is newer than your local `main`, update `main` first:
+
+```powershell
+git checkout main
+git pull origin main
+git checkout YOUR_BRANCH
+git merge main
+```
+
+Then run the same app as everyone else. Do not start a second Flask app.
+
+```powershell
+python -m flask --app app run --debug
+```
+
+Open http://127.0.0.1:5000/ . The home page shows **connected** next to a module when its package is present on this branch. Other modules stay as placeholders.
+
+| Branch | Package the shell imports | Used by |
+|--------|---------------------------|---------|
+| `catalogue` | `catalogue/queries.py` | `/catalogue`, `/title/<id>` |
+| `Borrow_Return` | `borrow_return/service.py` | `/desk` |
+| `feature/reservation-inventory` | `reservation_management/` | `/my/reservations` |
+
+### Catalogue
+
+Keep `catalogue/queries.py` (and `common/db.py`). The shell calls `get_all_titles`, `get_title`, `get_copies_for_title` and `count_titles`. Do not run `flask --app catalogue.app`.
+
+### Borrowing and return
+
+Remove any standalone `borrow_return.app` Flask server. On `Borrow_Return` add:
+
+```python
+# borrow_return/__init__.py  (can be empty)
+# borrow_return/service.py
+
+def desk_context():
+    """Return a dict for the desk page, e.g. copy, readers, loans."""
+
+def borrow(reader_id, barcode):
+    """Issue the copy or raise an exception."""
+
+def return_copy(barcode):
+    """Return the copy or raise an exception."""
+```
+
+`POST /desk/borrow` and `POST /desk/return` call these functions.
+
+### Reservations
+
+Keep `reservation_management/` with `queue`, `allocation`, `collection` and `expiration`. `/my/reservations?title_id=` uses the FIFO queue.
+
+After a database change on `main` (for example `title.cover_url`), merge `main` into your branch and reload the sample data:
+
+```powershell
+python scripts/init_db.py
+```

@@ -2,6 +2,42 @@
 {% block title %}Circulation desk · Know Book{% endblock %}
 {% block content %}
   <h1>Circulation desk</h1>
-  <p class="module-label">Borrowing &amp; Return Management package is present.</p>
-  <p>Issue and return still belong in this page. The standalone demo remains available with <code>python -m flask --app borrow_return.app run --port 5081</code>.</p>
+  <p class="module-label">Borrowing &amp; Return Management</p>
+  {% if copy %}
+    <p>{{ copy.title }} · {{ copy.barcode }} · {{ copy.status }}</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('desk.borrow') }}" class="login-form">
+    <label>
+      Reader ID
+      <input type="number" name="reader_id" min="1" required>
+    </label>
+    <label>
+      Barcode
+      <input type="text" name="barcode" value="{{ copy.barcode if copy else '' }}" required>
+    </label>
+    <button type="submit">Issue</button>
+  </form>
+  <form method="post" action="{{ url_for('desk.return_copy') }}" class="login-form">
+    <label>
+      Barcode
+      <input type="text" name="barcode" value="{{ copy.barcode if copy else '' }}" required>
+    </label>
+    <button type="submit">Return</button>
+  </form>
+  {% if loans %}
+    <h2>Loan history</h2>
+    <table class="data">
+      <thead><tr><th>Reader</th><th>Borrowed</th><th>Due</th><th>Returned</th></tr></thead>
+      <tbody>
+        {% for loan in loans %}
+          <tr>
+            <td>{{ loan.username }}</td>
+            <td>{{ loan.borrowed_at }}</td>
+            <td>{{ loan.due_at }}</td>
+            <td>{{ loan.returned_at or "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
 {% endblock %}

@@ -1,10 +1,11 @@
 """Optional hooks into feature-branch packages.
 
-Git branches cannot run inside each other. The website looks for well-known
-folders in the current working tree. If a folder is missing, that page stays
-a placeholder. Merge main into a feature branch so that branch has both the
-shell and its package; you do not have to merge the feature back into main
-to try it.
+The website on main only contains Flask routes. It looks for packages in the
+current working tree. If a package is missing, that page stays a placeholder.
+
+Merge main into a feature branch (not the other way around) so that branch
+has the shell plus its package. You do not have to merge the feature back
+into main to try it.
 """
 
 from __future__ import annotations
@@ -43,12 +44,20 @@ def load_reservations():
 
 
 def load_circulation():
-    return (ROOT / "borrow_return" / "app.py").is_file()
+    """Borrow_Return branch should provide borrow_return/service.py."""
+    if not (ROOT / "borrow_return").is_dir():
+        return None
+    try:
+        from borrow_return import service
+    except ImportError:
+        return {"service": None}
+    return {"service": service}
 
 
 def loaded_modules():
+    circulation = load_circulation()
     return {
         "catalogue": load_catalogue() is not None,
         "reservations": load_reservations() is not None,
-        "circulation": load_circulation(),
+        "circulation": circulation is not None and circulation.get("service") is not None,
     }
