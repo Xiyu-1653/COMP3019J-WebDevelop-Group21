@@ -44,7 +44,27 @@ Password for every seed account: `KnowBook123`
 | `dave` | undergraduate | Reserved copy waiting for collection |
 | `eve` | undergraduate | Current loan on Algorithms |
 
-## C module demo
+## Website shell
 
-The circulation desk demo runs with Python, Flask and a local or shared MySQL instance.
-See the [demo runbook](borrow_return/README.md) for setup and the borrow/return walkthrough.
+The shared Flask app lives in `app/`. It has the home page, navigation and empty routes for each management module. Module owners implement the pages on their branches; do not add a second Flask application.
+
+```
+pip install -r requirements.txt
+python -m flask --app app run --debug
+```
+
+Open http://127.0.0.1:5000/
+
+| Page | Route |
+|------|--------|
+| Home | `/` |
+| Login | `/login` |
+| Catalogue | `/catalogue` |
+| Title | `/title/<id>` |
+| My loans | `/my/loans` |
+| My reservations | `/my/reservations` |
+| Desk | `/desk` |
+| Overdue | `/desk/overdue` |
+| Inventory | `/inventory` |
+
+The older circulation demo in `borrow_return/` is still available. See [borrow_return/README.md](borrow_return/README.md).

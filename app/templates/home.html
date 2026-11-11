@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Know Book{% endblock %}
+{% block content %}
+  <h1>Know Book</h1>
+  <p>University library circulation site. This is the shared website shell. Each management module fills in its own pages.</p>
+  <ul class="entry-links">
+    <li><a href="{{ url_for('auth.login') }}">Login</a></li>
+    <li><a href="{{ url_for('catalogue.index') }}">Catalogue</a></li>
+    <li><a href="{{ url_for('desk.index') }}">Circulation desk</a></li>
+  </ul>
+{% endblock %}
