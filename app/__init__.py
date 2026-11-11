@@ -11,6 +11,7 @@ from app.blueprints.auth import auth_bp
 from app.blueprints.catalogue import catalogue_bp
 from app.blueprints.desk import desk_bp
 from app.blueprints.reservations import reservations_bp
+from app.integrations import loaded_modules
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,6 +29,6 @@ def create_app():
 
     @app.get("/")
     def home():
-        return render_template("home.html")
+        return render_template("home.html", modules=loaded_modules())
 
     return app

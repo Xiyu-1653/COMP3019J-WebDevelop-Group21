@@ -104,3 +104,16 @@ body {
   font: inherit;
   padding: 0.4rem 0.5rem;
 }
+
+.data {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.data th,
+.data td {
+  text-align: left;
+  padding: 0.55rem;
+  border-bottom: 1px solid var(--line);
+}

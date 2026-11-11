@@ -67,4 +67,12 @@ Open http://127.0.0.1:5000/
 | Overdue | `/desk/overdue` |
 | Inventory | `/inventory` |
 
+The website loads a module only if that package exists in the current working tree. Merge `main` into your feature branch, then run the shell on that branch. You do not have to merge the feature back into `main` to try it.
+
+| Branch | Package the shell looks for |
+|--------|-----------------------------|
+| `catalogue` | `catalogue/` |
+| `feature/reservation-inventory` | `reservation_management/` |
+| `Borrow_Return` / `main` | `borrow_return/` |
+
 The older circulation demo in `borrow_return/` is still available. See [borrow_return/README.md](borrow_return/README.md).
