@@ -9,8 +9,11 @@ The database lives in this repository as SQL files. After the team points `DATAB
 | File | Purpose |
 |------|---------|
 | `database/01_schema.sql` | Tables, keys, checks, indexes, triggers |
-| `database/02_seed.sql` | Demo users, titles, copies, loans, reservations, fees |
+| `database/02_seed.sql` | Demo users, 8 starter titles, copies, loans, reservations, fees |
+| `database/03_books.sql` | Extra 100 titles (id 9–108) and 210 copies; `cover_url` is `/static/covers/{isbn}.jpg` |
+| `app/static/covers/` | Cover image files served by the Flask app |
 | `scripts/init_db.py` | Creates/resets the database from those files |
+| `scripts/fetch_books.py` | Regenerates `03_books.sql` from Open Library (optional) |
 
 ## Shared MySQL (recommended for the team)
 

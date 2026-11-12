@@ -284,7 +284,7 @@ def build_sql(books):
     for i, book in enumerate(books):
         title_id = 9 + i
         created = base + dt.timedelta(hours=22 * i)
-        cover = f"https://covers.openlibrary.org/b/isbn/{book['isbn']}-L.jpg"
+        cover = f"/static/covers/{book['isbn']}.jpg"
 
         desc = works_description(book["key"])
         is_ebook = False
