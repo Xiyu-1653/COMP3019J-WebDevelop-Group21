@@ -1,24 +1,95 @@
-"""User & Account Management: login and logout routes only."""
+"""User & Account Management: login and logout."""
 
-from flask import Blueprint, flash, redirect, render_template, url_for
+from datetime import timedelta
+
+from flask import (
+    Blueprint,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from werkzeug.security import check_password_hash
+
+from common.db import connect
 
 auth_bp = Blueprint("auth", __name__)
 
 
+@auth_bp.record_once
+def _configure_sessions(state):
+    state.app.config.setdefault("PERMANENT_SESSION_LIFETIME", timedelta(minutes=60))
+
+
+@auth_bp.app_context_processor
+def inject_current_user():
+    if not session.get("user_id"):
+        return {"current_user": None}
+    return {
+        "current_user": {
+            "user_id": session.get("user_id"),
+            "username": session.get("username"),
+            "role": session.get("role"),
+            "reader_category": session.get("reader_category"),
+        }
+    }
+
+
+def _find_user(username):
+    with connect() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT user_id, username, password_hash, role, reader_category
+            FROM user
+            WHERE username = %s
+            """,
+            (username,),
+        )
+        return cursor.fetchone()
+
+
 @auth_bp.get("/login")
 def login():
-    return render_template("auth/login.html")
+    if session.get("user_id"):
+        return redirect(url_for("home"))
+    return render_template("auth/login.html", username="")
 
 
 @auth_bp.post("/login")
 def login_submit():
-    # Account management fills in credential checks and session creation.
-    flash("Login is not implemented yet.")
-    return redirect(url_for("auth.login"))
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    try:
+        user = _find_user(username)
+    except Exception as exc:
+        flash(f"Could not reach the database: {exc}")
+        return render_template("auth/login.html", username=username), 503
+
+    password_matches = False
+    if user:
+        password_matches = check_password_hash(user["password_hash"], password)
+    if not password_matches:
+        flash("Username or password is incorrect.")
+        return render_template("auth/login.html", username=username), 401
+
+    session.clear()
+    session.permanent = True
+    session["user_id"] = user["user_id"]
+    session["username"] = user["username"]
+    session["role"] = user["role"]
+    session["reader_category"] = user["reader_category"]
+    current_app.logger.info("login success user_id=%s", user["user_id"])
+
+    if user["role"] == "librarian":
+        return redirect(url_for("desk.index"), code=303)
+    return redirect(url_for("catalogue.index"), code=303)
 
 
 @auth_bp.post("/logout")
 def logout():
-    # Account management fills in session clearing.
-    flash("Logout is not implemented yet.")
-    return redirect(url_for("home"))
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("home"), code=303)

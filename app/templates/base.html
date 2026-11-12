@@ -16,11 +16,17 @@
       <a href="{{ url_for('desk.index') }}">Desk</a>
       <a href="{{ url_for('desk.overdue') }}">Overdue</a>
       <a href="{{ url_for('catalogue.inventory') }}">Inventory</a>
-      <a href="{{ url_for('auth.login') }}">Login</a>
+      {% if current_user %}
+        <span class="nav-user">{{ current_user.username }}</span>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">Login</a>
+      {% endif %}
     </nav>
-    <form class="logout" method="post" action="{{ url_for('auth.logout') }}">
-      <button type="submit">Logout</button>
-    </form>
+    {% if current_user %}
+      <form class="logout" method="post" action="{{ url_for('auth.logout') }}">
+        <button type="submit">Logout</button>
+      </form>
+    {% endif %}
   </header>
 
   <main class="site-main">

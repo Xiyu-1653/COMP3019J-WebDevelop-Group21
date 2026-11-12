@@ -6,12 +6,13 @@
   <form method="post" action="{{ url_for('auth.login_submit') }}" class="login-form">
     <label>
       Username
-      <input type="text" name="username" autocomplete="username">
+      <input type="text" name="username" value="{{ username }}" autocomplete="username" required>
     </label>
     <label>
       Password
-      <input type="password" name="password" autocomplete="current-password">
+      <input type="password" name="password" autocomplete="current-password" required>
     </label>
     <button type="submit">Log in</button>
   </form>
+  <p class="module-label">Demo accounts use password KnowBook123: librarian, alice, bob, carol, dave, eve.</p>
 {% endblock %}
