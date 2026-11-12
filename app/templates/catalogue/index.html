@@ -5,18 +5,23 @@
   <p class="module-label">{{ total }} {{ 'title' if total == 1 else 'titles' }} in the catalogue.</p>
   <table class="data">
     <thead>
-      <tr><th>Title</th><th>Author</th><th>Category</th><th>Available</th></tr>
+      <tr><th>Cover</th><th>Title</th><th>Author</th><th>Category</th><th>Available</th></tr>
     </thead>
     <tbody>
       {% for t in titles %}
         <tr>
+          <td>
+            {% if t.cover_url %}
+              <img class="cover-thumb" src="{{ t.cover_url }}" alt="{{ t.title }}">
+            {% endif %}
+          </td>
           <td><a href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">{{ t.title }}</a></td>
           <td>{{ t.author }}</td>
           <td>{{ t.category }}</td>
           <td>{{ t.available_copies }} / {{ t.total_copies }}</td>
         </tr>
       {% else %}
-        <tr><td colspan="4">No titles in the catalogue yet.</td></tr>
+        <tr><td colspan="5">No titles in the catalogue yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>

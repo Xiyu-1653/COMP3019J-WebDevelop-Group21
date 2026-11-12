@@ -121,3 +121,17 @@ body {
   padding: 0.55rem;
   border-bottom: 1px solid var(--line);
 }
+
+.cover-thumb {
+  width: 40px;
+  height: 58px;
+  object-fit: cover;
+  vertical-align: middle;
+  background: #e8eef6;
+}
+
+.cover {
+  width: 140px;
+  height: auto;
+  background: #e8eef6;
+}
