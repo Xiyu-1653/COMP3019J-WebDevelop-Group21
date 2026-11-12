@@ -50,6 +50,10 @@ body {
   text-decoration: underline;
 }
 
+.nav-user {
+  color: var(--muted);
+}
+
 .logout {
   margin-left: auto;
 }
