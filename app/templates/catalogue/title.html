@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{% if title %}{{ title.title }}{% else %}Title not found{% endif %} · Know Book{% endblock %}
+{% block content %}
+  {% if title %}
+    <h1>{{ title.title }}</h1>
+    {% if title.cover_url %}
+      <p><img class="cover" src="{{ title.cover_url }}" alt="{{ title.title }}"></p>
+    {% endif %}
+    <p class="module-label">{{ title.author }} · {{ title.category }}</p>
+    <p>ISBN {{ title.isbn }}. Available {{ title.available_copies }} / {{ title.total_copies }}.</p>
+    <p>{{ title.description or "No description." }}</p>
+    <h2>Physical copies</h2>
+    <table class="data">
+      <thead><tr><th>Barcode</th><th>Status</th><th>Location</th></tr></thead>
+      <tbody>
+        {% for c in copies %}
+          <tr>
+            <td>{{ c.barcode }}</td>
+            <td>{{ c.status }}</td>
+            <td>{{ c.location or "—" }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3">No physical copies registered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <h1>Title not found</h1>
+  {% endif %}
+  <p><a href="{{ url_for('catalogue.index') }}">Back to catalogue</a></p>
+{% endblock %}

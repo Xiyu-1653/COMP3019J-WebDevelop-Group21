@@ -16,23 +16,31 @@ INSERT INTO user (user_id, username, password_hash, role, reader_category) VALUE
     (5, 'dave', 'scrypt:32768:8:1$dbIaypPRyA976Bpt$51c6a73a64e0ba798a7dc4748617f9d279a954d1902968dd3844685f4811f4ad549410f1a609ee0db9024474a63ed6c0463a2c394300de992b5ccf8d640c7f90', 'reader', 'undergraduate'),
     (6, 'eve', 'scrypt:32768:8:1$nmi9CiHi0hpUisXR$27591936f58c589303e5d69e5433664842333849e51c23d2e6ff7293b4c604b677bc130df04cf3c0e722cd710b136d39b79d746413b09933e57cfd5c6cf997bc', 'reader', 'undergraduate');
 
-INSERT INTO title (title_id, isbn, title, author, category, description, has_digital_version, created_at) VALUES
+INSERT INTO title (title_id, isbn, title, author, category, description, has_digital_version, cover_url, created_at) VALUES
     (1, '9780132350884', 'Clean Code', 'Robert C. Martin', 'Computing',
-        'A handbook of agile software craftsmanship.', 1, '2026-09-01 09:00:00'),
+        'A handbook of agile software craftsmanship.', 1,
+        '/static/covers/9780132350884.jpg', '2026-09-01 09:00:00'),
     (2, '9780262033848', 'Introduction to Algorithms', 'Thomas H. Cormen', 'Computing',
-        'Comprehensive textbook of algorithms.', 0, '2026-09-02 09:00:00'),
+        'Comprehensive textbook of algorithms.', 0,
+        '/static/covers/9780262033848.jpg', '2026-09-02 09:00:00'),
     (3, '9780141439518', 'Pride and Prejudice', 'Jane Austen', 'Literature',
-        'A classic novel of manners and marriage.', 1, '2026-09-03 09:00:00'),
+        'A classic novel of manners and marriage.', 1,
+        '/static/covers/9780141439518.jpg', '2026-09-03 09:00:00'),
     (4, '9780553380163', 'A Brief History of Time', 'Stephen Hawking', 'Science',
-        'An introduction to cosmology for general readers.', 0, '2026-09-04 09:00:00'),
+        'An introduction to cosmology for general readers.', 0,
+        '/static/covers/9780553380163.jpg', '2026-09-04 09:00:00'),
     (5, '9780078022159', 'Database System Concepts', 'Abraham Silberschatz', 'Computing',
-        'Core ideas behind database management systems.', 1, '2026-09-05 09:00:00'),
+        'Core ideas behind database management systems.', 1,
+        '/static/covers/9780078022159.jpg', '2026-09-05 09:00:00'),
     (6, '9780743273565', 'The Great Gatsby', 'F. Scott Fitzgerald', 'Literature',
-        'A novel of wealth, love and the American dream.', 0, '2026-09-06 09:00:00'),
+        'A novel of wealth, love and the American dream.', 0,
+        '/static/covers/9780743273565.jpg', '2026-09-06 09:00:00'),
     (7, '9780134610993', 'Artificial Intelligence: A Modern Approach', 'Stuart Russell', 'Computing',
-        'A standard introduction to artificial intelligence.', 1, '2026-10-01 09:00:00'),
+        'A standard introduction to artificial intelligence.', 1,
+        '/static/covers/9780134610993.jpg', '2026-10-01 09:00:00'),
     (8, '9780062316097', 'Sapiens', 'Yuval Noah Harari', 'History',
-        'A brief history of humankind.', 1, '2026-10-20 09:00:00');
+        'A brief history of humankind.', 1,
+        '/static/covers/9780062316097.jpg', '2026-10-20 09:00:00');
 
 INSERT INTO copy (copy_id, title_id, barcode, status, location) VALUES
     (1,  1, 'KB-0001', 'available',    'A-01-01'),
