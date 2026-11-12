@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Borrowing & Returns · Know Book{% endblock %}
+{% block content %}
+  <h1>Borrowing &amp; Returns</h1>
+  <p class="module-label">Circulation desk</p>
+  <p><strong>Book</strong> {{ copy.title }} · <strong>Barcode</strong> {{ copy.barcode }} · <strong>Status</strong> {{ copy.status | replace("_", " ") | capitalize }}</p>
+
+  <form method="post" action="{{ url_for('desk.borrow') }}" class="login-form">
+    <input type="hidden" name="barcode" value="{{ copy.barcode }}">
+    <label>
+      Reader
+      <select name="reader_id" required>
+        {% for reader in readers %}
+          <option value="{{ reader.user_id }}">{{ reader.username }} ({{ reader.reader_category | replace("_", " ") | title }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" {% if copy.status != 'available' %}disabled{% endif %}>Check out</button>
+  </form>
+
+  <form method="post" action="{{ url_for('desk.return_copy') }}" class="login-form">
+    <input type="hidden" name="barcode" value="{{ copy.barcode }}">
+    <button type="submit" {% if copy.status != 'borrowed' %}disabled{% endif %}>Return</button>
+  </form>
+
+  <h2>Loan history</h2>
+  <table class="data">
+    <thead><tr><th>Reader</th><th>Checked out</th><th>Due date</th><th>Returned</th></tr></thead>
+    <tbody>
+      {% for loan in loans %}
+        <tr>
+          <td>{{ loan.username }}</td>
+          <td>{{ loan.borrowed_at }}</td>
+          <td>{{ loan.due_at }}</td>
+          <td>{{ loan.returned_at or "On loan" }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">No loan records yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

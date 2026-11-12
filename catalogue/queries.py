@@ -11,6 +11,7 @@ from __future__ import annotations
 _TITLE_AGGREGATE_SELECT = """
     SELECT t.title_id, t.isbn, t.title, t.author, t.category,
            t.description, t.has_digital_version, t.created_at,
+           t.cover_url,
            COALESCE(SUM(c.status = 'available'), 0) AS available_copies,
            COUNT(c.copy_id) AS total_copies
     FROM title AS t

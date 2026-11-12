@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}My reservations · Know Book{% endblock %}
+{% block content %}
+  <h1>My reservations</h1>
+  <p class="module-label">Reservation &amp; Inventory Management is connected.</p>
+  <form method="get" action="{{ url_for('reservations.my_reservations') }}" class="login-form">
+    <label>
+      Title ID
+      <input type="number" name="title_id" value="{{ title_id or '' }}" min="1">
+    </label>
+    <button type="submit">Show waiting queue</button>
+  </form>
+  {% if error %}
+    <p class="flash">{{ error }}</p>
+  {% endif %}
+  {% if title_id %}
+    <table class="data">
+      <thead><tr><th>Reservation</th><th>Reader</th><th>Reserved at</th></tr></thead>
+      <tbody>
+        {% for row in queue_rows %}
+          <tr>
+            <td>{{ row.reservation_id }}</td>
+            <td>{{ row.reader_id }}</td>
+            <td>{{ row.reserved_at }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3">No waiting reservations for this title.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endblock %}

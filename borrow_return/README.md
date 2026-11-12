@@ -1,64 +1,50 @@
-# 借阅与归还 demo
+# Borrowing and returns
 
-在仓库根目录运行。使用已有 Python 环境和 MySQL 8，页面使用馆员 librarian 和 Clean Code 的实体副本 KB-0001。
+This package provides the services used by the shared Flask desk routes. Run commands from the repository root.
 
-## 首次准备
+## Run locally
 
-在 PowerShell 执行以下命令，安装项目依赖。
+Install the dependencies in the existing Python environment.
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-先确定要使用的数据库。如果已经有组长提供的数据库地址，且其中已导入项目样本，可以直接配置连接并启动。
+Configure DATABASE_URL in the root .env file, following .env.example. All modules use common/db.py and the same database connection. The existing DB_HOST, DB_PORT, DB_USER, DB_PASSWORD and DB_NAME environment variables are also supported. DATABASE_URL takes priority.
 
-如果需要本机测试库，在 MySQL 客户端中新建数据库。以本机 root 账号、3306 端口为例，在仓库根目录执行下面命令，输入自己的 MySQL 密码。
-
-```powershell
-& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -h 127.0.0.1 -P 3306 -u root -p
-```
-
-在 MySQL 提示符逐条执行，确认建库成功后再导入。导入脚本包含删表操作，请只在新建的测试库执行。
-
-```sql
-CREATE DATABASE knowbook_c_demo CHARACTER SET utf8mb4;
-USE knowbook_c_demo;
-SOURCE database/01_schema.sql
-SOURCE database/02_seed.sql
-EXIT
-```
-
-## 配置连接并启动
-
-仍在仓库根目录的 PowerShell 中执行。凭据窗口中填写自己的 MySQL 用户名和密码。运行后保持终端打开。
+For the previously prepared local demo database, set the following in PowerShell. Enter the local MySQL credentials in the prompt.
 
 ```powershell
-$credential = Get-Credential -UserName root -Message "请输入本机 MySQL 凭据"
+$credential = Get-Credential -UserName root -Message "Enter local MySQL credentials"
 $env:DB_HOST = "127.0.0.1"
 $env:DB_PORT = "3306"
 $env:DB_USER = $credential.UserName
 $env:DB_PASSWORD = $credential.GetNetworkCredential().Password
 $env:DB_NAME = "knowbook_c_demo"
-python -m flask --app borrow_return.app run --port 5081
+python -m flask --app app run --debug
 ```
 
-也可以复制仓库的 .env.example 为 .env，配置 DATABASE_URL。应用和数据库初始化脚本使用同一个 URL。URL 中的用户名和密码如果含有 @、#、% 等字符，需要进行 URL 编码。DATABASE_URL 配置优先于上面的 DB_* 环境变量。
+Open http://127.0.0.1:5000/ and select Circulation desk. The home page shows connected for borrowing and returns. The desk is available at /desk.
 
-打开 [借还页面](http://127.0.0.1:5081/)。按 Ctrl+C 停止服务。退出 PowerShell 后，当前会话设置的环境变量会结束。
+Use the existing project schema and seed data. Running scripts/init_db.py resets the configured database, so use it only when a reset is intended.
 
-## 演示步骤
+## Service interface
 
-1. 选 alice 并点击「借出」。副本变为 borrowed，新增借阅记录，到期时间为借出后 14 天。
-2. 刷新页面，确认借阅记录仍然存在。
-3. 点击「归还」。副本恢复 available，记录显示归还时间。
-4. 选 bob 并点击「借出」。页面显示逾期提示，副本和借阅记录保持原样。
+- desk_context() returns the copy, readers and loans used by the desk template.
+- borrow(reader_id, barcode) validates borrowing eligibility and commits the loan and copy changes together.
+- return_copy(barcode) closes the loan and updates the copy in one transaction.
 
-样本里 Alice 的原有借阅在 2026 年 11 月 15 日到期。超过该日期后，需要先处理她的逾期记录，或者在 2026 年 12 月 19 日前使用 carol 验证成功路径。Carol 的新借阅期限为 60 天。
+The shared routes in app/blueprints/desk.py call these functions. The desk page uses app/templates/desk/index.html and extends the shared base template.
 
-借出操作会检查副本状态、逾期、未缴费用和按书目计算的借阅上限。loan 和 copy 的修改在同一个事务中提交。存在等待预约时，demo 会拒绝办理该副本的归还。登录、续借、费用生成和预约分配需要继续开发。
+## Demonstration
 
-## 本地文件清理
+The desk retains the original demo scope, showing Clean Code, barcode KB-0001, and using the seed librarian with ID 1. Authentication will provide the acting librarian when the account module is integrated.
 
-源码、模板和数据库 SQL 是项目文件，继续保留。__pycache__ 和 .pyc 文件是 Python 缓存，可以删除。若自己创建了专用的 .venv，确认不再使用后可以删除。
+1. Choose alice and check out the item. Confirm its status becomes Borrowed and a loan with a 14-day period appears.
+2. Refresh the page and confirm that the record remains.
+3. Return the item. Confirm its status becomes Available and its return time appears.
+4. Choose bob and attempt checkout. Confirm an overdue-loan message appears and no new loan is added.
 
-.env 可能包含数据库密码，已由仓库 .gitignore 排除，请保留在本机。
+Alice's original seed loan is due on 15 November 2026. After it becomes overdue, use carol before her seed loan becomes overdue on 19 December 2026, or first resolve Alice's overdue loan. Carol receives a 60-day borrowing period.
+
+The services check copy availability, overdue loans, unpaid fees and distinct-title borrowing limits. Returns with a waiting reservation are refused until reservation allocation is integrated. Renewals, fee generation and reservation allocation remain future work.

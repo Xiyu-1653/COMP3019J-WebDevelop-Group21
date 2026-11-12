@@ -1,10 +1,7 @@
-"""Local demonstration of the Know Book circulation desk."""
-
-from flask import Flask, redirect, render_template, request, url_for
+"""Borrowing services called by the shared circulation desk."""
 
 from common.db import connect
 
-app = Flask(__name__)
 DEMO_BARCODE = "KB-0001"
 DEMO_LIBRARIAN = 1
 LOAN_RULES = {
@@ -24,10 +21,13 @@ class DeskError(Exception):
     """A business rule prevented the requested operation."""
 
 
-def desk_page(error=None):
+def desk_context():
+    """Return the current demo item, readers and its loan history."""
     with connect() as connection, connection.cursor() as cursor:
         cursor.execute(COPY_QUERY, (DEMO_BARCODE,))
         copy = cursor.fetchone()
+        if copy is None:
+            raise DeskError(f"Demo item {DEMO_BARCODE} was not found in the database.")
         cursor.execute(
             "SELECT user_id, username, reader_category FROM user "
             "WHERE role = 'reader' ORDER BY username"
@@ -42,18 +42,37 @@ def desk_page(error=None):
             (copy["copy_id"],),
         )
         loans = cursor.fetchall()
-    return render_template(
-        "desk.html", copy=copy, readers=readers, loans=loans, error=error,
-        result=request.args.get("result"),
+    return {"copy": copy, "readers": readers, "loans": loans}
+
+
+def _lock_copy(cursor, barcode):
+    cursor.execute(
+        "SELECT copy_id, title_id, status FROM copy WHERE barcode = %s FOR UPDATE",
+        (barcode,),
     )
+    copy = cursor.fetchone()
+    if copy is None:
+        raise DeskError("No item was found with that barcode.")
+    return copy
 
 
-@app.get("/")
-def index():
-    return desk_page()
+def borrow(reader_id, barcode):
+    """Issue an item and update its status in one transaction."""
+    with connect() as connection, connection.cursor() as cursor:
+        copy = _lock_copy(cursor, barcode)
+        _issue_loan(cursor, reader_id, copy)
+        connection.commit()
 
 
-def borrow(cursor, reader_id, copy):
+def return_copy(barcode):
+    """Close the item's loan and update its status in one transaction."""
+    with connect() as connection, connection.cursor() as cursor:
+        copy = _lock_copy(cursor, barcode)
+        _close_loan(cursor, copy)
+        connection.commit()
+
+
+def _issue_loan(cursor, reader_id, copy):
     cursor.execute(
         "SELECT reader_category FROM user "
         "WHERE user_id = %s AND role = 'reader' FOR UPDATE",
@@ -105,7 +124,7 @@ def borrow(cursor, reader_id, copy):
     )
 
 
-def return_copy(cursor, copy):
+def _close_loan(cursor, copy):
     if copy["status"] != "borrowed":
         raise DeskError("This item is not currently on loan.")
     cursor.execute(
@@ -128,27 +147,3 @@ def return_copy(cursor, copy):
         (copy["copy_id"],),
     )
 
-
-@app.post("/desk")
-def update_desk():
-    action = request.form.get("action")
-    if action not in {"borrow", "return"}:
-        return desk_page("Unknown action."), 400
-
-    try:
-        with connect() as connection, connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT copy_id, title_id, status FROM copy WHERE barcode = %s FOR UPDATE",
-                (DEMO_BARCODE,),
-            )
-            copy = cursor.fetchone()
-            if action == "borrow":
-                borrow(cursor, request.form.get("reader_id", type=int), copy)
-            else:
-                return_copy(cursor, copy)
-            connection.commit()
-    except DeskError as error:
-        # Closing the uncommitted connection rolls back the operation.
-        return desk_page(str(error)), 409
-
-    return redirect(url_for("index", result=action), code=303)

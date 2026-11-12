@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Login · Know Book{% endblock %}
+{% block content %}
+  <h1>Login</h1>
+  <p class="module-label">User &amp; Account Management</p>
+  <form method="post" action="{{ url_for('auth.login_submit') }}" class="login-form">
+    <label>
+      Username
+      <input type="text" name="username" autocomplete="username">
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" autocomplete="current-password">
+    </label>
+    <button type="submit">Log in</button>
+  </form>
+{% endblock %}

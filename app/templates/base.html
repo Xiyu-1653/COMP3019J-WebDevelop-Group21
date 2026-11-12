@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Know Book{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('home') }}">Know Book</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="{{ url_for('catalogue.index') }}">Catalogue</a>
+      <a href="{{ url_for('account.loans') }}">My loans</a>
+      <a href="{{ url_for('reservations.my_reservations') }}">My reservations</a>
+      <a href="{{ url_for('desk.index') }}">Desk</a>
+      <a href="{{ url_for('desk.overdue') }}">Overdue</a>
+      <a href="{{ url_for('catalogue.inventory') }}">Inventory</a>
+      <a href="{{ url_for('auth.login') }}">Login</a>
+    </nav>
+    <form class="logout" method="post" action="{{ url_for('auth.logout') }}">
+      <button type="submit">Logout</button>
+    </form>
+  </header>
+
+  <main class="site-main">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flash">
+          {% for message in messages %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

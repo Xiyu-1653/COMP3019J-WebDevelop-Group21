@@ -114,6 +114,9 @@ def main() -> None:
             cursor.execute(f"USE `{cfg['database']}`")
             run_sql_file(cursor, DATABASE_DIR / "01_schema.sql")
             run_sql_file(cursor, DATABASE_DIR / "02_seed.sql")
+            extra_books = DATABASE_DIR / "03_books.sql"
+            if extra_books.is_file():
+                run_sql_file(cursor, extra_books)
         conn.commit()
     except Exception:
         conn.rollback()
