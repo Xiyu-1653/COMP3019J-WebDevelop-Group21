@@ -2,12 +2,14 @@
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app.blueprints.auth import librarian_required, login_required
 from app.integrations import load_reservations
 
 reservations_bp = Blueprint("reservations", __name__)
 
 
 @reservations_bp.get("/my/reservations")
+@login_required
 def my_reservations():
     reservations = load_reservations()
     if reservations is None:
@@ -40,18 +42,21 @@ def my_reservations():
 
 
 @reservations_bp.post("/title/<int:title_id>/reserve")
+@login_required
 def place_hold(title_id):
     flash("Placing a reservation is not implemented yet.")
     return redirect(url_for("catalogue.title_detail", title_id=title_id))
 
 
 @reservations_bp.post("/reservations/<int:reservation_id>/cancel")
+@login_required
 def cancel(reservation_id):
     flash("Cancelling a reservation is not implemented yet.")
     return redirect(url_for("reservations.my_reservations"))
 
 
 @reservations_bp.post("/desk/collect")
+@librarian_required
 def collect():
     reservations = load_reservations()
     if reservations is None:

@@ -2,6 +2,7 @@
 
 from flask import Blueprint, flash, redirect, render_template, url_for
 
+from app.blueprints.auth import librarian_required, login_required
 from app.integrations import load_catalogue
 
 catalogue_bp = Blueprint("catalogue", __name__)
@@ -17,6 +18,7 @@ def _placeholder(heading, detail):
 
 
 @catalogue_bp.get("/catalogue")
+@login_required
 def index():
     catalogue = load_catalogue()
     if catalogue is None:
@@ -35,6 +37,7 @@ def index():
 
 
 @catalogue_bp.get("/title/<int:title_id>")
+@login_required
 def title_detail(title_id):
     catalogue = load_catalogue()
     if catalogue is None:
@@ -53,6 +56,7 @@ def title_detail(title_id):
 
 
 @catalogue_bp.get("/inventory")
+@librarian_required
 def inventory():
     return _placeholder(
         "Inventory",
@@ -61,24 +65,28 @@ def inventory():
 
 
 @catalogue_bp.post("/titles")
+@librarian_required
 def create_title():
     flash("Adding a title is not implemented yet.")
     return redirect(url_for("catalogue.inventory"))
 
 
 @catalogue_bp.post("/titles/<int:title_id>")
+@librarian_required
 def update_title(title_id):
     flash("Editing a title is not implemented yet.")
     return redirect(url_for("catalogue.title_detail", title_id=title_id))
 
 
 @catalogue_bp.post("/copies")
+@librarian_required
 def create_copy():
     flash("Registering a copy is not implemented yet.")
     return redirect(url_for("catalogue.inventory"))
 
 
 @catalogue_bp.post("/copies/<int:copy_id>/status")
+@librarian_required
 def update_copy_status(copy_id):
     flash("Updating copy status is not implemented yet.")
     return redirect(url_for("catalogue.inventory"))

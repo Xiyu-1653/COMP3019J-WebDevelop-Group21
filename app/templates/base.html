@@ -10,13 +10,16 @@
   <header class="site-header">
     <a class="brand" href="{{ url_for('home') }}">Know Book</a>
     <nav class="site-nav" aria-label="Main">
-      <a href="{{ url_for('catalogue.index') }}">Catalogue</a>
-      <a href="{{ url_for('account.loans') }}">My loans</a>
-      <a href="{{ url_for('reservations.my_reservations') }}">My reservations</a>
-      <a href="{{ url_for('desk.index') }}">Desk</a>
-      <a href="{{ url_for('desk.overdue') }}">Overdue</a>
-      <a href="{{ url_for('catalogue.inventory') }}">Inventory</a>
       {% if current_user %}
+        <a href="{{ url_for('catalogue.index') }}">Catalogue</a>
+        {% if current_user.role == "reader" %}
+          <a href="{{ url_for('account.loans') }}">My loans</a>
+          <a href="{{ url_for('reservations.my_reservations') }}">My reservations</a>
+        {% elif current_user.role == "librarian" %}
+          <a href="{{ url_for('desk.index') }}">Desk</a>
+          <a href="{{ url_for('desk.overdue') }}">Overdue</a>
+          <a href="{{ url_for('catalogue.inventory') }}">Inventory</a>
+        {% endif %}
         <span class="nav-user">{{ current_user.username }}</span>
       {% else %}
         <a href="{{ url_for('auth.login') }}">Login</a>

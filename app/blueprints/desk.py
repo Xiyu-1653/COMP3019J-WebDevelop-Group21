@@ -9,6 +9,7 @@ Implemented on the Borrow_Return branch as ``borrow_return/service.py``:
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app.blueprints.auth import librarian_required
 from app.integrations import load_circulation
 
 desk_bp = Blueprint("desk", __name__)
@@ -24,6 +25,7 @@ def _placeholder(heading, detail):
 
 
 @desk_bp.get("/desk")
+@librarian_required
 def index():
     circulation = load_circulation()
     if circulation is None:
@@ -47,6 +49,7 @@ def index():
 
 
 @desk_bp.get("/desk/overdue")
+@librarian_required
 def overdue():
     return _placeholder(
         "Overdue and fees",
@@ -55,6 +58,7 @@ def overdue():
 
 
 @desk_bp.post("/desk/borrow")
+@librarian_required
 def borrow():
     circulation = load_circulation()
     service = circulation.get("service") if circulation else None
@@ -73,6 +77,7 @@ def borrow():
 
 
 @desk_bp.post("/desk/return")
+@librarian_required
 def return_copy():
     circulation = load_circulation()
     service = circulation.get("service") if circulation else None
