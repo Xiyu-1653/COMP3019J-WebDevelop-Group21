@@ -1,6 +1,15 @@
 """Reservation & Inventory Management: queue and collection."""
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from app.blueprints.auth import librarian_required, login_required
 from app.integrations import load_reservations
@@ -21,22 +30,68 @@ def my_reservations():
             "This page fills in when reservation_management is in the working tree.",
         )
 
-    title_id = request.args.get("title_id", type=int)
-    queue_rows = []
+    if not session.get("user_id"):
+        flash("Please log in to see your reservations.")
+        return redirect(url_for("auth.login"))
+    if session.get("role") != "reader":
+        flash("Reservations belong to reader accounts.")
+        return redirect(url_for("reservations.queue_admin"))
+
+    reservation_rows = []
     error = None
-    if title_id is not None:
+    try:
+        with reservations["connect"]() as connection, connection.cursor() as cursor:
+            reservations["expiration"].process_expired_reservations(cursor)
+            reservation_rows = reservations["queue"].get_reader_reservations(
+                cursor, session["user_id"]
+            )
+            connection.commit()
+    except Exception as exc:
+        error = str(exc)
+
+    return render_template(
+        "reservations/index.html",
+        reservation_rows=reservation_rows,
+        error=error,
+    )
+
+
+@reservations_bp.get("/desk/reservations")
+def queue_admin():
+    if not session.get("user_id"):
+        flash("Please log in as a librarian to manage reservation queues.")
+        return redirect(url_for("auth.login"))
+    if session.get("role") != "librarian":
+        abort(403)
+
+    reservations = load_reservations()
+    if reservations is None:
+        return render_template(
+            "placeholder.html",
+            heading="Reservation queues",
+            module="Reservation & Inventory Management",
+            detail="Search a book title to see its waiting queue. "
+            "This page fills in when reservation_management is in the working tree.",
+        )
+
+    keyword = request.args.get("q", "").strip()
+    title_results = []
+    error = None
+    if keyword:
         try:
             with reservations["connect"]() as connection, connection.cursor() as cursor:
                 reservations["expiration"].process_expired_reservations(cursor)
+                title_results = reservations["queue"].find_waiting_queues(
+                    cursor, keyword
+                )
                 connection.commit()
-                queue_rows = reservations["queue"].get_waiting_queue(cursor, title_id)
         except Exception as exc:
             error = str(exc)
 
     return render_template(
-        "reservations/index.html",
-        title_id=title_id,
-        queue_rows=queue_rows,
+        "reservations/queues.html",
+        keyword=keyword,
+        title_results=title_results,
         error=error,
     )
 

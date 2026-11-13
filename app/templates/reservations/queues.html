@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Reservation queues · Know Book{% endblock %}
+{% block content %}
+  <h1>Reservation queues</h1>
+  <p class="module-label">Librarian view · Reservation &amp; Inventory Management</p>
+  <form method="get" action="{{ url_for('reservations.queue_admin') }}" class="login-form">
+    <label>
+      Book title
+      <input type="search" name="q" value="{{ keyword }}" placeholder="e.g. Algorithms">
+    </label>
+    <button type="submit">Search</button>
+  </form>
+  {% if error %}
+    <p class="flash">{{ error }}</p>
+  {% endif %}
+  {% if keyword %}
+    {% for match in title_results %}
+      <h2>{{ match.title }}</h2>
+      <p class="module-label">{{ match.author }} · {{ match.queue_rows|length }} waiting</p>
+      <table class="data">
+        <thead><tr><th>Reservation</th><th>Reader</th><th>Reserved at</th></tr></thead>
+        <tbody>
+          {% for row in match.queue_rows %}
+            <tr>
+              <td>{{ row.reservation_id }}</td>
+              <td>{{ row.username }} · {{ row.reader_category|replace('_', ' ') }}</td>
+              <td>{{ row.reserved_at }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3">No waiting reservations for this title.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No titles match “{{ keyword }}”.</p>
+    {% endfor %}
+  {% endif %}
+{% endblock %}

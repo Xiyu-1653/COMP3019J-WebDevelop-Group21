@@ -19,6 +19,7 @@
           <a href="{{ url_for('desk.index') }}">Desk</a>
           <a href="{{ url_for('desk.overdue') }}">Overdue</a>
           <a href="{{ url_for('catalogue.inventory') }}">Inventory</a>
+          <a href="{{ url_for('reservations.queue_admin') }}">Reservation queues</a>
         {% endif %}
         <span class="nav-user">{{ current_user.username }}</span>
       {% else %}
