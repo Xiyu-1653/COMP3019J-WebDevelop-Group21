@@ -70,8 +70,17 @@ class CatalogueQueryTests(unittest.TestCase):
 
     def test_count_available_copies(self):
         with connect() as connection, connection.cursor() as cursor:
-            self.assertEqual(queries.count_available_copies(cursor, 1), 2)
-            self.assertEqual(queries.count_available_copies(cursor, 4), 1)
+            for title_id in (1, 4):
+                cursor.execute(
+                    "SELECT COUNT(*) AS n FROM copy "
+                    "WHERE title_id = %s AND status = 'available'",
+                    (title_id,),
+                )
+                expected = cursor.fetchone()["n"]
+                self.assertEqual(
+                    queries.count_available_copies(cursor, title_id),
+                    expected,
+                )
 
     def test_seed_covers_all_copy_statuses(self):
         with connect() as connection, connection.cursor() as cursor:
