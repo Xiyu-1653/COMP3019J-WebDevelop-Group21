@@ -11,7 +11,7 @@ from app.blueprints.auth import auth_bp
 from app.blueprints.catalogue import catalogue_bp
 from app.blueprints.desk import desk_bp
 from app.blueprints.reservations import reservations_bp
-from app.integrations import loaded_modules
+from app.integrations import load_catalogue, loaded_modules
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,6 +29,20 @@ def create_app():
 
     @app.get("/")
     def home():
-        return render_template("home.html", modules=loaded_modules())
+        context = {"modules": loaded_modules()}
+        catalogue = load_catalogue()
+        if catalogue is not None:
+            try:
+                with catalogue["connect"]() as connection, connection.cursor() as cursor:
+                    context["recent_titles"] = catalogue["queries"].get_recently_added(
+                        cursor, limit=6
+                    )
+                    context["popular_titles"] = catalogue["queries"].get_frequently_borrowed(
+                        cursor, limit=6
+                    )
+            except Exception:
+                # Homepage must still render even if the database is down.
+                pass
+        return render_template("home.html", **context)
 
     return app

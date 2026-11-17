@@ -2,27 +2,97 @@
 {% block title %}Catalogue · Know Book{% endblock %}
 {% block content %}
   <h1>Catalogue</h1>
-  <p class="module-label">{{ total }} {{ 'title' if total == 1 else 'titles' }} in the catalogue.</p>
-  <table class="data">
-    <thead>
-      <tr><th>Cover</th><th>Title</th><th>Author</th><th>Category</th><th>Available</th></tr>
-    </thead>
-    <tbody>
-      {% for t in titles %}
-        <tr>
-          <td>
-            {% if t.cover_url %}
-              <img class="cover-thumb" src="{{ t.cover_url }}" alt="{{ t.title }}">
+
+  <form class="catalogue-filters" method="get" action="{{ url_for('catalogue.index') }}">
+    <label class="filter-search">
+      Search
+      <input type="search" name="q" value="{{ q }}" placeholder="Title, author or ISBN…">
+    </label>
+    <label>
+      In
+      <select name="field">
+        <option value="all" {{ 'selected' if field == 'all' }}>All fields</option>
+        <option value="title" {{ 'selected' if field == 'title' }}>Title</option>
+        <option value="author" {{ 'selected' if field == 'author' }}>Author</option>
+        <option value="isbn" {{ 'selected' if field == 'isbn' }}>ISBN</option>
+      </select>
+    </label>
+    <label>
+      Category
+      <select name="category">
+        <option value="">All categories</option>
+        {% for c in categories %}
+          <option value="{{ c }}" {{ 'selected' if c == category }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Availability
+      <select name="available">
+        <option value="">Any</option>
+        <option value="1" {{ 'selected' if available_only }}>Available now</option>
+      </select>
+    </label>
+    <button type="submit">Search</button>
+    {% if q or category or available_only %}
+      <a class="clear-filters" href="{{ url_for('catalogue.index') }}">Clear filters</a>
+    {% endif %}
+  </form>
+
+  <p class="module-label">
+    {{ total }} {{ 'title' if total == 1 else 'titles' }}
+    {% if q or category or available_only %} matching your filters{% endif %}.
+  </p>
+
+  <div class="book-grid">
+    {% for t in titles %}
+      <a class="book-card" href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">
+        {% if t.cover_url %}
+          <img class="book-cover" src="{{ t.cover_url }}" alt="Cover of {{ t.title }}" loading="lazy">
+        {% else %}
+          <div class="book-cover book-cover--placeholder" aria-hidden="true">No cover</div>
+        {% endif %}
+        <div class="book-card-body">
+          <h2 class="book-title">{{ t.title }}</h2>
+          <p class="book-author">{{ t.author }}</p>
+          <p class="book-category">{{ t.category }}</p>
+          <p class="book-availability {{ 'is-available' if t.available_copies else 'is-unavailable' }}">
+            {% if t.available_copies %}
+              Available{% if t.total_copies %} · {{ t.available_copies }} / {{ t.total_copies }} copies{% endif %}
+            {% else %}
+              Unavailable{% if t.total_copies %} · {{ t.total_copies }} {{ 'copy' if t.total_copies == 1 else 'copies' }}{% endif %}
             {% endif %}
-          </td>
-          <td><a href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">{{ t.title }}</a></td>
-          <td>{{ t.author }}</td>
-          <td>{{ t.category }}</td>
-          <td>{{ t.available_copies }} / {{ t.total_copies }}</td>
-        </tr>
+          </p>
+        </div>
+      </a>
+    {% else %}
+      <p class="empty">No books match your search.
+        {% if q or category or available_only %}<a href="{{ url_for('catalogue.index') }}">Clear filters</a>.{% endif %}
+      </p>
+    {% endfor %}
+  </div>
+
+  {% if total_pages > 1 %}
+    <nav class="pagination" aria-label="Catalogue pages">
+      {% if pagination.prev_url %}
+        <a href="{{ pagination.prev_url }}">← Previous</a>
       {% else %}
-        <tr><td colspan="5">No titles in the catalogue yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        <span class="disabled">← Previous</span>
+      {% endif %}
+      <span class="page-numbers">
+        {% for p in pagination.pages %}
+          {% if p.current %}
+            <span class="current">{{ p.number }}</span>
+          {% else %}
+            <a href="{{ p.url }}">{{ p.number }}</a>
+          {% endif %}
+        {% endfor %}
+      </span>
+      {% if pagination.next_url %}
+        <a href="{{ pagination.next_url }}">Next →</a>
+      {% else %}
+        <span class="disabled">Next →</span>
+      {% endif %}
+    </nav>
+  {% endif %}
 {% endblock %}
