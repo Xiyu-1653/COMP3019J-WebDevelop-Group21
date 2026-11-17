@@ -122,6 +122,16 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
+.status-overdue {
+  color: #9b1c1c;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .cover-thumb {
   width: 40px;
   height: 58px;
