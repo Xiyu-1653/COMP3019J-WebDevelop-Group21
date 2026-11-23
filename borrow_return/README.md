@@ -30,15 +30,15 @@ Use the existing project schema and seed data. Running scripts/init_db.py resets
 
 ## Service interface
 
-- desk_context() returns the copy, readers and loans used by the desk template.
-- borrow(reader_id, barcode) validates borrowing eligibility and commits the loan and copy changes together.
-- return_copy(barcode) closes the loan and updates the copy in one transaction.
+- desk_context(barcode) returns the copy, readers and loans used by the desk template.
+- borrow(reader_id, barcode, librarian_id) validates borrowing eligibility and commits the loan and copy changes together.
+- return_copy(barcode) closes the loan, assigns the item to the first waiting reservation if present, and commits all changes together. It returns the reservation ID, or None when no reader is waiting.
 
 The shared routes in app/blueprints/desk.py call these functions. The desk page uses app/templates/desk/index.html and extends the shared base template.
 
 ## Demonstration
 
-The desk retains the original demo scope, showing Clean Code, barcode KB-0001, and using the seed librarian with ID 1. Authentication will provide the acting librarian when the account module is integrated.
+Enter an item barcode, such as KB-0001, to show its details and loan history. The desk passes the logged-in librarian's user ID from the server session to the service. Each new loan records that librarian ID.
 
 1. Choose alice and check out the item. Confirm its status becomes Borrowed and a loan with a 14-day period appears.
 2. Refresh the page and confirm that the record remains.
@@ -47,4 +47,30 @@ The desk retains the original demo scope, showing Clean Code, barcode KB-0001, a
 
 Alice's original seed loan is due on 15 November 2026. After it becomes overdue, use carol before her seed loan becomes overdue on 19 December 2026, or first resolve Alice's overdue loan. Carol receives a 60-day borrowing period.
 
-The services check copy availability, overdue loans, unpaid fees and distinct-title borrowing limits. Returns with a waiting reservation are refused until reservation allocation is integrated. Renewals, fee generation and reservation allocation remain future work.
+The services check copy availability, overdue loans, unpaid fees and distinct-title borrowing limits. Returned items are assigned to the first waiting reader using reservation_management.allocation. The item becomes reserved, the reservation becomes ready, and a collection notification is created. The collection deadline uses collection_window_days from system_config. Items with no waiting reader remain available. Overdue fee generation is described below.
+
+## Reader renewals
+
+Readers open My loans to see their current and past loans. Renewal services and queries are in borrow_return/renewal.py, adapted from the login branch's account implementation. The page template is borrow_return/templates/borrow_return/loans.html.
+
+A reader can renew their own open loan once, strictly before the due time, when no reservation is waiting for that title. The server checks these conditions again on submission. It extends the existing due date by the reader category's normal borrowing period: 14, 30 or 60 days. The loan's renewal_count becomes 1.
+
+The copy and loan are locked during renewal to serialize competing return and renewal operations. The conditional update also rejects already renewed, returned or expired loans.
+
+## Overdue fees
+
+Each overdue loan receives a single fixed charge from system_config.overdue_fee_amount (5.00 in the seed data). The charge is not a daily rate. An open loan is overdue when due_at is earlier than the current database time. A returned loan qualifies when returned_at is later than due_at.
+
+Returning an item generates any missing overdue charges for that copy in the same transaction as the return and reservation allocation. Librarians can also open Overdue and select Generate overdue fees to process all missing charges, including unreturned overdue loans. There is no scheduled background task.
+
+The database's unique (loan_id, reason) key prevents duplicate overdue fees. Existing amounts and paid/cancelled statuses are preserved. No schema change is needed for the project's current schema.
+
+Readers see their own records through My loans > Fee history. Fees are generated on late return or the librarian's generation action. Recording payment remains a separate, unfinished feature.
+
+## Desk reader search and history pages
+
+After finding an item, search for a reader using a username prefix or an exact user ID. The page shows at most 20 matches and asks for a more specific search when additional matches exist. Empty searches do not load the reader list. Select the correct reader before checkout.
+
+Each item's loan history is ordered by newest loan first and shows 10 records per page. Previous and Next retain the item barcode and reader search. Invalid page numbers fall back to page 1; requests beyond the last page show the last page.
+
+Reader search also filters the selected item's loan history and its page count. Clear the search or select Show all readers' loan records to view the item's full history. A single matching checkout borrower is displayed directly; multiple matches require choosing the exact borrower.

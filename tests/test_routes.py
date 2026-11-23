@@ -60,7 +60,7 @@ class RouteTests(unittest.TestCase):
         self.login_session('librarian'); service=MagicMock()
         with patch('app.blueprints.desk.load_circulation',return_value={'service':service}):
             self.assertEqual(self.client.post('/desk/borrow',data={'reader_id':'2','barcode':' KB-1 '}).status_code,302)
-            service.borrow.assert_called_once_with(2,'KB-1')
+            service.borrow.assert_called_once_with(2,'KB-1',2)
             self.assertEqual(self.client.post('/desk/return',data={'barcode':' KB-1 '}).status_code,302)
             service.return_copy.assert_called_once_with('KB-1')
 

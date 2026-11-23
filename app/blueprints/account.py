@@ -1,31 +1,55 @@
-"""User & Account Management: personal records placeholders."""
+"""Personal loan records, renewals and account routes."""
 
-from flask import Blueprint, flash, redirect, render_template, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, session, url_for
 
-from app.blueprints.auth import login_required
+from app.blueprints.auth import login_required, role_required
 
-account_bp = Blueprint("account", __name__)
+from borrow_return.fees import load_fee_summary, load_reader_fees
+from borrow_return.renewal import AccountError, load_reader_loans, load_renew_loan
+
+account_bp = Blueprint("account", __name__, template_folder="../../borrow_return/templates")
 
 
 @account_bp.get("/my/loans")
-@login_required
+@role_required("reader")
 def loans():
+    error = None
+    current_loans = []
+    past_loans = []
+    try:
+        current_loans, past_loans = load_reader_loans(session["user_id"])
+    except Exception as exc:
+        error = str(exc)
+    fee_summary = None
+    try:
+        fee_summary = load_fee_summary(session["user_id"])
+    except Exception:
+        pass
     return render_template(
-        "placeholder.html",
-        heading="My loans",
-        module="User & Account Management",
-        detail="Current and past loans go here. Renewal is posted below.",
+        "borrow_return/loans.html",
+        fee_summary=fee_summary,
+        current_loans=current_loans,
+        past_loans=past_loans,
+        error=error,
     )
 
 
 @account_bp.get("/my/fees")
-@login_required
+@role_required("reader")
 def fees():
+    error = None
+    fees = []
+    try:
+        fees = load_reader_fees(session["user_id"])
+    except Exception:
+        error = "Could not load your fees. Please try again."
+    fee_summary = None
+    try:
+        fee_summary = load_fee_summary(session["user_id"])
+    except Exception:
+        pass
     return render_template(
-        "placeholder.html",
-        heading="Fee history",
-        module="User & Account Management",
-        detail="Optional reader fee history goes here.",
+        "borrow_return/fees.html", fees=fees, error=error, fee_summary=fee_summary
     )
 
 
@@ -41,9 +65,20 @@ def notices():
 
 
 @account_bp.post("/loans/<int:loan_id>/renew")
-@login_required
+@role_required("reader")
 def renew_loan(loan_id):
-    flash("Renewal is not implemented yet.")
+    try:
+        days = load_renew_loan(
+            loan_id, session["user_id"], session.get("reader_category")
+        )
+    except LookupError:
+        abort(403)
+    except AccountError as exc:
+        flash(str(exc))
+    except Exception:
+        flash("Could not renew the loan. Please try again.")
+    else:
+        flash(f"Loan renewed. The due date was extended by {days} days.")
     return redirect(url_for("account.loans"))
 
 

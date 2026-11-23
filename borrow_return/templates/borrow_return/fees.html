@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}My fees · Know Book{% endblock %}
+{% block content %}
+  <h1>My fees</h1>
+  {% include "borrow_return/fee_notice.html" %}
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <table class="data">
+    <thead><tr><th>Book</th><th>Barcode</th><th>Reason</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for fee in fees %}
+        <tr>
+          <td>{{ fee.title }}</td>
+          <td>{{ fee.barcode }}</td>
+          <td>{{ fee.reason | replace("_", " ") | capitalize }}</td>
+          <td>{{ fee.amount }}</td>
+          <td>{{ fee.status | capitalize }}</td>
+          <td>{{ fee.created_at }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">You have no fee records.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
