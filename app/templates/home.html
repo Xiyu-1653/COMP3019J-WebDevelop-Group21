@@ -13,6 +13,7 @@
     {% endif %}
     {% if current_user and current_user.role == "reader" %}
       <li><a href="{{ url_for('account.loans') }}">My loans</a></li>
+      <li><a href="{{ url_for('account.fees') }}">Fee history</a></li>
       <li><a href="{{ url_for('reservations.my_reservations') }}">Reservations</a>{% if modules.reservations %} — connected{% endif %}</li>
     {% endif %}
   </ul>

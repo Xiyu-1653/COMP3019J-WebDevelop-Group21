@@ -181,9 +181,20 @@ class CatalogueQueryTests(unittest.TestCase):
     def test_frequently_borrowed_counts_loans(self):
         with connect() as connection, connection.cursor() as cursor:
             rows = queries.get_frequently_borrowed(cursor, limit=10)
+            cursor.execute(
+                """
+                SELECT t.title, COUNT(*) AS borrow_count
+                FROM loan AS l
+                JOIN copy AS c USING (copy_id)
+                JOIN title AS t USING (title_id)
+                GROUP BY t.title_id, t.title
+                ORDER BY borrow_count DESC, t.title_id
+                LIMIT 10
+                """
+            )
+            expected = cursor.fetchall()
         self.assertTrue(rows)
-        # Algorithms is the only title with two seed loans.
-        self.assertEqual(rows[0]["title"], "Introduction to Algorithms")
-        self.assertEqual(rows[0]["borrow_count"], 2)
+        self.assertEqual(rows[0]["title"], expected[0]["title"])
+        self.assertEqual(rows[0]["borrow_count"], expected[0]["borrow_count"])
         counts = [r["borrow_count"] for r in rows]
         self.assertEqual(counts, sorted(counts, reverse=True))

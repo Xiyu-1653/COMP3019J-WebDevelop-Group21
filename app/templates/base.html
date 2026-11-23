@@ -14,6 +14,7 @@
         <a href="{{ url_for('catalogue.index') }}">Catalogue</a>
         {% if current_user.role == "reader" %}
           <a href="{{ url_for('account.loans') }}">My loans</a>
+          <a href="{{ url_for('account.fees') }}">Fees</a>
           <a href="{{ url_for('reservations.my_reservations') }}">My reservations</a>
         {% elif current_user.role == "librarian" %}
           <a href="{{ url_for('desk.index') }}">Desk</a>

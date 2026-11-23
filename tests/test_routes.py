@@ -15,7 +15,7 @@ class RouteTests(unittest.TestCase):
             s.update(user_id=2,username='test',role=role,reader_category='undergraduate' if role=='reader' else None)
 
     def test_anonymous_protected_routes_redirect_to_login(self):
-        for path in ['/catalogue','/title/1','/my/loans','/my/reservations','/desk','/inventory']:
+        for path in ['/catalogue','/title/1','/my/loans','/my/fees','/my/reservations','/desk','/inventory']:
             with self.subTest(path=path):
                 response=self.client.get(path)
                 self.assertEqual(response.status_code,302); self.assertIn('/login',response.location)

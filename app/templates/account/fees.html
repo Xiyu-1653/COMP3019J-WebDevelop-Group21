@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Fee history · Know Book{% endblock %}
+{% block content %}
+  <h1>Fee history</h1>
+  <p class="module-label">User &amp; Account Management</p>
+  <p>This is a record of charges on your loans. Payments are recorded at the circulation desk, not online.</p>
+  <p><a href="{{ url_for('account.loans') }}">Back to My loans</a></p>
+  {% if error %}
+    <p class="flash">Could not load your fees: {{ error }}</p>
+  {% endif %}
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Book</th>
+        <th>Reason</th>
+        <th>Amount</th>
+        <th>Status</th>
+        <th>Recorded</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fee in fee_rows %}
+        <tr>
+          <td>
+            <a href="{{ url_for('catalogue.title_detail', title_id=fee.title_id) }}">{{ fee.title }}</a>
+          </td>
+          <td>{{ fee.reason | replace("_", " ") | capitalize }}</td>
+          <td>{{ fee.amount }}</td>
+          <td>{{ fee.status | capitalize }}</td>
+          <td>{{ fee.created_at }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5">You have no fees.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
