@@ -120,3 +120,70 @@ class CatalogueQueryTests(unittest.TestCase):
         finally:
             connection.rollback()
             connection.close()
+
+    def test_get_categories_sorted_and_contains_computing(self):
+        with connect() as connection, connection.cursor() as cursor:
+            categories = queries.get_categories(cursor)
+        self.assertIn("Computing", categories)
+        self.assertEqual(categories, sorted(categories))
+
+    def test_search_title_partial_match(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.search_titles(cursor, q="clean", field="title")
+        self.assertTrue(rows)
+        self.assertIn("Clean Code", {r["title"] for r in rows})
+
+    def test_search_author_match(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.search_titles(cursor, q="austen", field="author")
+        self.assertTrue(any("Pride and Prejudice" == r["title"] for r in rows))
+
+    def test_search_isbn_ignores_hyphens(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.search_titles(cursor, q="978-0-13-235088-4", field="isbn")
+        self.assertEqual([r["isbn"] for r in rows], ["9780132350884"])
+
+    def test_search_combined_category_and_availability(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.search_titles(
+                cursor, q="intelligence", field="all",
+                category="Computing", available_only=True,
+            )
+        # AIMA has an available copy; the "all" search also hits author Russell.
+        self.assertTrue(any("Modern Approach" in r["title"] for r in rows))
+        self.assertTrue(all(r["category"] == "Computing" for r in rows))
+        self.assertTrue(all(r["available_copies"] > 0 for r in rows))
+
+    def test_availability_filter_excludes_titles_without_available_copy(self):
+        with connect() as connection, connection.cursor() as cursor:
+            all_rows = queries.search_titles(cursor, category="Computing", limit=1000)
+            avail_rows = queries.search_titles(
+                cursor, category="Computing", available_only=True, limit=1000,
+            )
+        all_ids = {r["title_id"] for r in all_rows}
+        avail_ids = {r["title_id"] for r in avail_rows}
+        self.assertLess(len(avail_ids), len(all_ids))
+        self.assertTrue(avail_ids.issubset(all_ids))
+
+    def test_count_titles_matching_agrees_with_search(self):
+        with connect() as connection, connection.cursor() as cursor:
+            total = queries.count_titles_matching(cursor, category="History")
+            rows = queries.search_titles(cursor, category="History", limit=1000)
+        self.assertEqual(total, len(rows))
+
+    def test_recently_added_newest_first(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.get_recently_added(cursor, limit=6)
+        self.assertEqual(len(rows), 6)
+        created = [r["created_at"] for r in rows]
+        self.assertEqual(created, sorted(created, reverse=True))
+
+    def test_frequently_borrowed_counts_loans(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.get_frequently_borrowed(cursor, limit=10)
+        self.assertTrue(rows)
+        # Algorithms is the only title with two seed loans.
+        self.assertEqual(rows[0]["title"], "Introduction to Algorithms")
+        self.assertEqual(rows[0]["borrow_count"], 2)
+        counts = [r["borrow_count"] for r in rows]
+        self.assertEqual(counts, sorted(counts, reverse=True))
