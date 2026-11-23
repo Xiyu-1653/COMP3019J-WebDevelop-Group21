@@ -1,9 +1,12 @@
 """Borrowing services called by the shared circulation desk."""
 
 from common.db import connect
+from borrow_return.fees import generate_overdue_fees
+from reservation_management.allocation import allocate_available_copy
 
-DEMO_BARCODE = "KB-0001"
-DEMO_LIBRARIAN = 1
+HISTORY_PAGE_SIZE = 10
+READER_RESULT_LIMIT = 20
+
 LOAN_RULES = {
     "undergraduate": (14, 5),
     "postgraduate": (30, 10),
@@ -21,28 +24,97 @@ class DeskError(Exception):
     """A business rule prevented the requested operation."""
 
 
-def desk_context():
-    """Return the current demo item, readers and its loan history."""
+def desk_context(barcode="", reader_query="", page=1):
+    """Find an item by barcode and return its desk page information."""
+    barcode = barcode.strip()
+    reader_query = reader_query.strip()
+    try:
+        page = max(1, int(page))
+    except (ValueError, TypeError):
+        page = 1
+    context = {
+        "barcode": barcode,
+        "copy": None,
+        "readers": [],
+        "loans": [],
+        "error": None,
+        "reader_query": reader_query,
+        "reader_limit_reached": False,
+        "page": page,
+        "total_pages": 1,
+        "total_loans": 0,
+    }
+    if not barcode:
+        return context
     with connect() as connection, connection.cursor() as cursor:
-        cursor.execute(COPY_QUERY, (DEMO_BARCODE,))
+        cursor.execute(COPY_QUERY, (barcode,))
         copy = cursor.fetchone()
         if copy is None:
-            raise DeskError(f"Demo item {DEMO_BARCODE} was not found in the database.")
+            context["error"] = "No item was found with that barcode."
+            return context
+        readers = []
+        if reader_query:
+            readers = find_readers(cursor, reader_query)
+            context["reader_limit_reached"] = len(readers) > READER_RESULT_LIMIT
+            readers = readers[:READER_RESULT_LIMIT]
+        history_filter = "WHERE l.copy_id = %s"
+        history_parameters = [copy["copy_id"]]
+        if reader_query:
+            reader_filter, reader_parameters = _reader_filter(reader_query)
+            history_filter += " AND " + reader_filter
+            history_parameters.extend(reader_parameters)
         cursor.execute(
-            "SELECT user_id, username, reader_category FROM user "
-            "WHERE role = 'reader' ORDER BY username"
+            "SELECT COUNT(*) AS total "
+            "FROM loan AS l JOIN user AS u ON u.user_id = l.reader_id "
+            + history_filter,
+            tuple(history_parameters),
         )
-        readers = cursor.fetchall()
+        total_loans = cursor.fetchone()["total"]
+        total_pages = max(1, (total_loans + HISTORY_PAGE_SIZE - 1) // HISTORY_PAGE_SIZE)
+        page = min(page, total_pages)
+        offset = (page - 1) * HISTORY_PAGE_SIZE
         cursor.execute(
             """
             SELECT u.username, l.borrowed_at, l.due_at, l.returned_at
             FROM loan AS l JOIN user AS u ON u.user_id = l.reader_id
-            WHERE l.copy_id = %s ORDER BY l.loan_id DESC
-            """,
-            (copy["copy_id"],),
+            """
+            + history_filter
+            + " ORDER BY l.loan_id DESC LIMIT %s OFFSET %s",
+            tuple(history_parameters + [HISTORY_PAGE_SIZE, offset]),
         )
         loans = cursor.fetchall()
-    return {"copy": copy, "readers": readers, "loans": loans}
+    context["copy"] = copy
+    context["readers"] = readers
+    context["loans"] = loans
+    context["page"] = page
+    context["total_pages"] = total_pages
+    context["total_loans"] = total_loans
+    return context
+
+
+def _reader_filter(keyword):
+    """Use the same reader search for checkout and loan history."""
+    prefix = keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+    condition = "(u.username LIKE %s ESCAPE '!'"
+    parameters = [prefix]
+    if keyword.isascii() and keyword.isdigit():
+        condition += " OR u.user_id = %s"
+        parameters.append(keyword)
+    condition += ")"
+    return condition, parameters
+
+
+def find_readers(cursor, keyword):
+    """Find readers by username prefix or exact user ID."""
+    condition, parameters = _reader_filter(keyword)
+    cursor.execute(
+        "SELECT u.user_id, u.username, u.reader_category "
+        "FROM user AS u WHERE u.role = 'reader' AND "
+        + condition
+        + " ORDER BY u.username, u.user_id LIMIT %s",
+        tuple(parameters + [READER_RESULT_LIMIT + 1]),
+    )
+    return cursor.fetchall()
 
 
 def _lock_copy(cursor, barcode):
@@ -56,11 +128,18 @@ def _lock_copy(cursor, barcode):
     return copy
 
 
-def borrow(reader_id, barcode):
+def borrow(reader_id, barcode, librarian_id):
     """Issue an item and update its status in one transaction."""
     with connect() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT user_id FROM user WHERE user_id = %s AND role = 'librarian'",
+            (librarian_id,),
+        )
+        librarian = cursor.fetchone()
+        if librarian is None:
+            raise DeskError("A valid librarian account is required to issue an item.")
         copy = _lock_copy(cursor, barcode)
-        _issue_loan(cursor, reader_id, copy)
+        _issue_loan(cursor, reader_id, librarian_id, copy)
         connection.commit()
 
 
@@ -68,11 +147,13 @@ def return_copy(barcode):
     """Close the item's loan and update its status in one transaction."""
     with connect() as connection, connection.cursor() as cursor:
         copy = _lock_copy(cursor, barcode)
-        _close_loan(cursor, copy)
+        reservation_id = _close_loan(cursor, copy)
+        generate_overdue_fees(cursor, copy["copy_id"])
         connection.commit()
+    return reservation_id
 
 
-def _issue_loan(cursor, reader_id, copy):
+def _issue_loan(cursor, reader_id, librarian_id, copy):
     cursor.execute(
         "SELECT reader_category FROM user "
         "WHERE user_id = %s AND role = 'reader' FOR UPDATE",
@@ -116,7 +197,7 @@ def _issue_loan(cursor, reader_id, copy):
         INSERT INTO loan (reader_id, copy_id, librarian_id, due_at)
         VALUES (%s, %s, %s, DATE_ADD(NOW(), INTERVAL %s DAY))
         """,
-        (reader_id, copy["copy_id"], DEMO_LIBRARIAN, days),
+        (reader_id, copy["copy_id"], librarian_id, days),
     )
     cursor.execute(
         "UPDATE copy SET status = 'borrowed' WHERE copy_id = %s",
@@ -127,12 +208,6 @@ def _issue_loan(cursor, reader_id, copy):
 def _close_loan(cursor, copy):
     if copy["status"] != "borrowed":
         raise DeskError("This item is not currently on loan.")
-    cursor.execute(
-        "SELECT 1 FROM reservation WHERE title_id = %s AND status = 'waiting' LIMIT 1",
-        (copy["title_id"],),
-    )
-    if cursor.fetchone():
-        raise DeskError("This title has a waiting reservation. Its return requires reservation processing.")
     cursor.execute(
         """
         UPDATE loan SET returned_at = NOW()
@@ -147,3 +222,5 @@ def _close_loan(cursor, copy):
         (copy["copy_id"],),
     )
 
+    # Allocation uses the same cursor so the return and reservation commit together.
+    return allocate_available_copy(cursor, copy["copy_id"])
