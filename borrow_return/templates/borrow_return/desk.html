@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Borrowing & Returns · Know Book{% endblock %}
+{% block content %}
+  <h1>Borrowing &amp; Returns</h1>
+  <p class="module-label">Circulation desk</p>
+  <form method="get" action="{{ url_for('desk.index') }}" class="login-form">
+    <label>
+      Barcode
+      <input type="text" name="barcode" value="{{ barcode }}" placeholder="e.g. KB-0001" required>
+    </label>
+    <button type="submit">Find item</button>
+  </form>
+
+  {% if error %}
+    <p role="alert">{{ error }}</p>
+  {% elif not copy %}
+    <p>Enter an item's barcode to view its details and loan history.</p>
+  {% endif %}
+
+  {% if copy %}
+  <p><strong>Book</strong> {{ copy.title }} · <strong>Barcode</strong> {{ copy.barcode }} · <strong>Status</strong> {{ copy.status | replace("_", " ") | capitalize }}</p>
+
+  <form method="get" action="{{ url_for('desk.index') }}" class="login-form">
+    <input type="hidden" name="barcode" value="{{ copy.barcode }}">
+    <label>
+      Reader username or user ID
+      <input type="text" name="reader_query" value="{{ reader_query }}" placeholder="e.g. alice or 2">
+    </label>
+    <button type="submit">Search reader</button>
+  </form>
+  {% if reader_query %}
+    <p><a href="{{ url_for('desk.index', barcode=barcode) }}">Show all readers' loan records</a></p>
+  {% endif %}
+  {% if readers %}
+    <p role="status">Found {{ readers | length }} matching reader(s) for &ldquo;{{ reader_query }}&rdquo;.</p>
+  {% endif %}
+  {% if reader_limit_reached %}
+    <p>Showing the first 20 matches. Enter a more specific username or an exact user ID.</p>
+  {% elif reader_query and not readers %}
+    <p role="status">No readers found.</p>
+  {% elif not reader_query %}
+    <p>Find a reader before checking out this item.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('desk.borrow') }}" class="login-form">
+    <input type="hidden" name="barcode" value="{{ copy.barcode }}">
+    <input type="hidden" name="reader_query" value="{{ reader_query }}">
+    <input type="hidden" name="page" value="{{ page }}">
+    {% if readers | length == 1 %}
+      <input type="hidden" name="reader_id" value="{{ readers[0].user_id }}">
+      <p><strong>Checkout borrower</strong> {{ readers[0].username }} · ID {{ readers[0].user_id }}</p>
+    {% elif readers %}
+      <label>
+        Checkout borrower
+        <select name="reader_id" required>
+          <option value="" selected disabled>Select who will borrow this item</option>
+          {% for reader in readers %}
+            <option value="{{ reader.user_id }}">{{ reader.username }} · ID {{ reader.user_id }} ({{ reader.reader_category | replace("_", " ") | title }})</option>
+          {% endfor %}
+        </select>
+      </label>
+    {% endif %}
+    <button type="submit" {% if copy.status != 'available' or not readers %}disabled{% endif %}>Check out</button>
+  </form>
+
+  <form method="post" action="{{ url_for('desk.return_copy') }}" class="login-form">
+    <input type="hidden" name="barcode" value="{{ copy.barcode }}">
+    <input type="hidden" name="reader_query" value="{{ reader_query }}">
+    <input type="hidden" name="page" value="{{ page }}">
+    <button type="submit" {% if copy.status != 'borrowed' %}disabled{% endif %}>Return</button>
+  </form>
+
+  <h2>Item loan history</h2>
+  {% if reader_query %}
+    <p>Borrowing records for this item matching &ldquo;{{ reader_query }}&rdquo;.</p>
+  {% else %}
+    <p>Borrowing records for this item, across all readers.</p>
+  {% endif %}
+  <p>{{ total_loans }} record(s) · Page {{ page }} of {{ total_pages }}</p>
+  <table class="data">
+    <thead><tr><th>Reader</th><th>Checked out</th><th>Due date</th><th>Returned</th></tr></thead>
+    <tbody>
+      {% for loan in loans %}
+        <tr>
+          <td>{{ loan.username }}</td>
+          <td>{{ loan.borrowed_at }}</td>
+          <td>{{ loan.due_at }}</td>
+          <td>{{ loan.returned_at or "On loan" }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4">No loan records match this search.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if total_pages > 1 %}
+    <nav aria-label="Loan history pages">
+      {% if page > 1 %}
+        <a href="{{ url_for('desk.index', barcode=barcode, reader_query=reader_query, page=page - 1) }}">Previous</a>
+      {% endif %}
+      {% if page < total_pages %}
+        <a href="{{ url_for('desk.index', barcode=barcode, reader_query=reader_query, page=page + 1) }}">Next</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+  {% endif %}
+{% endblock %}

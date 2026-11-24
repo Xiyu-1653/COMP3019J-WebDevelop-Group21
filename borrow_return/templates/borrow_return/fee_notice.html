@@ -1,0 +1,18 @@
+<section aria-labelledby="fee-notice-heading" style="margin: 1.25rem 0; padding: 1rem 1.25rem; border: 1px solid #c9922f; border-left: 5px solid #c9922f; border-radius: 6px; background: #fff8e8;">
+  <h2 id="fee-notice-heading" style="margin: 0 0 .5rem;">Fees and overdue policy</h2>
+  {% if fee_summary %}
+    {% if fee_summary.unpaid_count %}
+      <p style="margin: .5rem 0; font-size: 1.25rem;"><strong>Outstanding balance {{ "%.2f" | format(fee_summary.unpaid_total) }}</strong></p>
+      <p>You have {{ fee_summary.unpaid_count }} unpaid fee record(s). New borrowing is blocked until unpaid fees are resolved.</p>
+    {% else %}
+      <p><strong>No recorded unpaid fees.</strong></p>
+    {% endif %}
+    <p>An overdue loan incurs a <strong>one-time overdue fee of {{ "%.2f" | format(fee_summary.overdue_amount) }} per loan</strong>.</p>
+    <p>Charges are recorded on late return or when library staff check overdue fees.</p>
+  {% else %}
+    <p>Fee information is currently unavailable. Please try again later.</p>
+  {% endif %}
+  {% if request.endpoint == "account.loans" %}
+  <a href="{{ url_for('account.fees') }}" style="display: inline-block; padding: .4rem .8rem; border: 1px solid #1f4e79; border-radius: 4px; color: #1f4e79; background: white; font-weight: 600;">View fee details</a>
+  {% endif %}
+</section>

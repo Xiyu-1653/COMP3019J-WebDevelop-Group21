@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Overdue and fees · Know Book{% endblock %}
+{% block content %}
+  <h1>Overdue and fees</h1>
+  <p>Each overdue loan receives one fixed charge using the configured overdue fee amount. Repeated checks preserve existing charges.</p>
+  <form method="post" action="{{ url_for('desk.generate_fees') }}" class="login-form">
+    <button type="submit">Generate overdue fees</button>
+  </form>
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <table class="data">
+    <thead><tr><th>Reader</th><th>Book</th><th>Barcode</th><th>Due</th><th>Returned</th><th>Amount</th><th>Fee status</th></tr></thead>
+    <tbody>
+      {% for loan in loans %}
+        <tr>
+          <td>{{ loan.username }}</td>
+          <td>{{ loan.title }}</td>
+          <td>{{ loan.barcode }}</td>
+          <td>{{ loan.due_at }}</td>
+          <td>{{ loan.returned_at or "On loan" }}</td>
+          <td>{{ loan.amount if loan.amount is not none else "—" }}</td>
+          <td>{{ loan.fee_status | capitalize if loan.fee_status else "Not generated" }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7">No overdue loans.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
