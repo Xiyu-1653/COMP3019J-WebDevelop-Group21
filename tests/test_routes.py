@@ -150,13 +150,33 @@ class CatalogueRouteTests(unittest.TestCase):
     def test_create_copy_success(self):
         self.login_session('librarian')
         queries=MagicMock()
+        queries.find_title_id_by_name.return_value=1
         with self._catalogue(queries):
             self.assertEqual(
-                self.client.post('/copies',data={'title_id':'1','barcode':'KB-1','status':'available'}).status_code,
+                self.client.post('/copies',data={'title':'Clean Code','barcode':'KB-1','status':'available'}).status_code,
                 302,
             )
+        queries.find_title_id_by_name.assert_called_once()
         queries.create_copy.assert_called_once()
         self.assertIn('Copy registered.', self._flashes())
+
+    def test_create_copy_unknown_title_preserves_input(self):
+        self.login_session('librarian')
+        queries=MagicMock()
+        queries.find_title_id_by_name.return_value=None
+        queries.get_all_titles.return_value=[]
+        queries.get_categories.return_value=[]
+        with self._catalogue(queries):
+            response=self.client.post(
+                '/copies',
+                data={'title':'No Such Book','barcode':'KB-123','status':'available','location':''},
+            )
+        self.assertEqual(response.status_code,200)
+        html=response.get_data(as_text=True)
+        self.assertIn('That title does not exist.', html)
+        self.assertIn('No Such Book', html)
+        self.assertIn('KB-123', html)
+        queries.create_copy.assert_not_called()
 
     def test_update_copy_status_rejects_borrowed(self):
         self.login_session('librarian')

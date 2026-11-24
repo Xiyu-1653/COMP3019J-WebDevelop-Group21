@@ -237,6 +237,17 @@ def _default_location(status):
     return None
 
 
+def _next_barcode(cursor):
+    """Return the next ``KB-XXXX`` barcode after the highest existing one."""
+    cursor.execute(
+        "SELECT MAX(CAST(SUBSTRING(barcode, 4) AS UNSIGNED)) AS n "
+        "FROM copy WHERE barcode REGEXP '^KB-[0-9]+$'"
+    )
+    row = cursor.fetchone()
+    current = row["n"] if row and row["n"] is not None else 0
+    return f"KB-{int(current) + 1:04d}"
+
+
 def create_title(
     cursor,
     *,
@@ -317,11 +328,30 @@ def update_title(
     )
 
 
+def find_title_id_by_name(cursor, name):
+    """Return the ``title_id`` matching a title name, or ``None`` if no match.
+
+    Match is exact but case-insensitive (MySQL's ``*_ci`` collation). If several
+    titles share the name, the lowest ``title_id`` wins.
+    """
+    name = (name or "").strip()
+    if not name:
+        return None
+    cursor.execute(
+        "SELECT title_id FROM title WHERE title = %s ORDER BY title_id LIMIT 1",
+        (name,),
+    )
+    row = cursor.fetchone()
+    return row["title_id"] if row else None
+
+
 def create_copy(cursor, *, title_id, barcode, status="available", location=None):
     """Register a physical copy for a title and return its new ``copy_id``."""
     if status not in INVENTORY_STATUSES:
         raise CatalogueError("Invalid copy status.")
-    barcode = _require(barcode, "Barcode")
+    barcode = (barcode or "").strip()
+    if not barcode:
+        barcode = _next_barcode(cursor)
     location = _clean_optional(location) or _default_location(status)
 
     cursor.execute("SELECT title_id FROM title WHERE title_id = %s", (title_id,))

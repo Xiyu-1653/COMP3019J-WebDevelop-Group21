@@ -59,6 +59,13 @@ class CatalogueQueryTests(unittest.TestCase):
         with connect() as connection, connection.cursor() as cursor:
             self.assertIsNone(queries.get_title(cursor, 999999))
 
+    def test_find_title_id_by_name(self):
+        with connect() as connection, connection.cursor() as cursor:
+            self.assertEqual(queries.find_title_id_by_name(cursor, "Clean Code"), 1)
+            self.assertEqual(queries.find_title_id_by_name(cursor, "clean code"), 1)
+            self.assertIsNone(queries.find_title_id_by_name(cursor, "No Such Title"))
+            self.assertIsNone(queries.find_title_id_by_name(cursor, "   "))
+
     def test_get_copies_for_title(self):
         with connect() as connection, connection.cursor() as cursor:
             copies = queries.get_copies_for_title(cursor, 1)
@@ -293,6 +300,19 @@ class CatalogueWriteTests(unittest.TestCase):
 
                 with self.assertRaisesRegex(queries.CatalogueError, "status"):
                     queries.update_copy_status(cursor, 1, "borrowed")
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_create_copy_auto_generates_barcode(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                copy_id = queries.create_copy(cursor, title_id=1, barcode="")
+                cursor.execute(
+                    "SELECT barcode FROM copy WHERE copy_id = %s", (copy_id,)
+                )
+                self.assertRegex(cursor.fetchone()["barcode"], r"^KB-\d{4,}$")
         finally:
             connection.rollback()
             connection.close()

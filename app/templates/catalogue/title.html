@@ -41,13 +41,13 @@
                 {% if c.status in ('available', 'damaged', 'lost', 'under_repair') %}
                   <form class="inline-form" method="post" action="{{ url_for('catalogue.update_copy_status', copy_id=c.copy_id) }}">
                     <input type="hidden" name="title_id" value="{{ title.title_id }}">
-                    <select name="status">
+                    <select name="status" data-location-target="location-copy-{{ c.copy_id }}">
                       <option value="available" {{ 'selected' if c.status == 'available' }}>Available</option>
                       <option value="damaged" {{ 'selected' if c.status == 'damaged' }}>Damaged</option>
                       <option value="lost" {{ 'selected' if c.status == 'lost' }}>Lost</option>
                       <option value="under_repair" {{ 'selected' if c.status == 'under_repair' }}>Under repair</option>
                     </select>
-                    <input name="location" value="{{ c.location or '' }}" placeholder="location">
+                    <input name="location" id="location-copy-{{ c.copy_id }}" value="{{ c.location or '' }}" placeholder="A-01-01">
                     <button type="submit">Update</button>
                   </form>
                 {% else %}
@@ -66,4 +66,5 @@
     <p>The book you requested does not exist in the catalogue.</p>
   {% endif %}
   <p><a href="{{ url_for('catalogue.index') }}">Back to catalogue</a></p>
+  <script src="{{ url_for('static', filename='catalogue.js') }}" defer></script>
 {% endblock %}

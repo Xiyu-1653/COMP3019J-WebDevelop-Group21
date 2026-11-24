@@ -117,6 +117,17 @@ body {
   gap: 0.5rem;
 }
 
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.location-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
 .inline-form {
   display: inline-flex;
   flex-wrap: wrap;

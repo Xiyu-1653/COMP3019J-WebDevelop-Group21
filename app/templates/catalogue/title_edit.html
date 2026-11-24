@@ -9,7 +9,11 @@
     <label>Category <input name="category" value="{{ title.category }}" required list="category-options"></label>
     <datalist id="category-options">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
     <label>Description <textarea name="description" rows="4">{{ title.description or '' }}</textarea></label>
-    <label>Cover URL <input name="cover_url" value="{{ title.cover_url or '' }}"></label>
+    <label>
+      Cover URL
+      <input name="cover_url" value="{{ title.cover_url or '' }}" placeholder="/static/covers/9780132350884.jpg">
+      <small class="hint">Name the file by its ISBN, e.g. /static/covers/9780132350884.jpg. Leave blank for a no-cover placeholder.</small>
+    </label>
     <label class="check"><input type="checkbox" name="has_digital_version" value="1" {{ 'checked' if title.has_digital_version }}> Has digital version</label>
     <button type="submit">Save changes</button>
   </form>

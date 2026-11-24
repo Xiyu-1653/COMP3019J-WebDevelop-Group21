@@ -14,7 +14,11 @@
       <label>Category <input name="category" required list="category-options"></label>
       <datalist id="category-options">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
       <label>Description <textarea name="description" rows="3"></textarea></label>
-      <label>Cover URL <input name="cover_url" placeholder="/static/covers/978… .jpg"></label>
+      <label>
+        Cover URL
+        <input name="cover_url" placeholder="/static/covers/9780132350884.jpg">
+        <small class="hint">Name the file by its ISBN, e.g. /static/covers/9780132350884.jpg. Leave blank for a no-cover placeholder.</small>
+      </label>
       <label class="check"><input type="checkbox" name="has_digital_version" value="1"> Has digital version</label>
       <button type="submit">Add title</button>
     </form>
@@ -25,22 +29,29 @@
     <form method="post" action="{{ url_for('catalogue.create_copy') }}" class="login-form">
       <label>
         Title
-        <select name="title_id" required>
-          <option value="">Select a title…</option>
-          {% for t in titles %}<option value="{{ t.title_id }}">{{ t.title }}</option>{% endfor %}
-        </select>
+        <input name="title" value="{{ copy_title }}" required list="title-options" placeholder="Clean Code">
+        <small class="hint">Matches an existing title name (case-insensitive). Add the title first if it does not exist.</small>
       </label>
-      <label>Barcode <input name="barcode" required></label>
+      <datalist id="title-options">{% for t in titles %}<option value="{{ t.title }}">{% endfor %}</datalist>
+      <label>
+        Barcode
+        <input name="barcode" value="{{ copy_barcode }}" placeholder="KB-0228">
+        <small class="hint">Leave blank to auto-generate the next KB-XXXX number.</small>
+      </label>
       <label>
         Status
-        <select name="status">
-          <option value="available">Available</option>
-          <option value="damaged">Damaged</option>
-          <option value="lost">Lost</option>
-          <option value="under_repair">Under repair</option>
+        <select name="status" data-location-target="copy-location">
+          <option value="available" {{ 'selected' if copy_status == 'available' }}>Available</option>
+          <option value="damaged" {{ 'selected' if copy_status == 'damaged' }}>Damaged</option>
+          <option value="lost" {{ 'selected' if copy_status == 'lost' }}>Lost</option>
+          <option value="under_repair" {{ 'selected' if copy_status == 'under_repair' }}>Under repair</option>
         </select>
       </label>
-      <label>Location <input name="location" placeholder="optional"></label>
+      <label>
+        Location
+        <input name="location" id="copy-location" value="{{ copy_location }}" placeholder="A-01-01">
+        <small class="hint">Shelf location, e.g. A-01-01 (section-shelf-position). Auto-filled for damaged, lost or under repair.</small>
+      </label>
       <button type="submit">Register copy</button>
     </form>
   </section>
@@ -68,4 +79,5 @@
       </tbody>
     </table>
   </section>
+  <script src="{{ url_for('static', filename='catalogue.js') }}" defer></script>
 {% endblock %}
