@@ -104,9 +104,41 @@ body {
   gap: 0.3rem;
 }
 
-.login-form input {
+.login-form input,
+.login-form select,
+.login-form textarea {
   font: inherit;
   padding: 0.4rem 0.5rem;
+}
+
+.login-form label.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.location-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.inline-form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.inline-form select,
+.inline-form input {
+  font: inherit;
+  padding: 0.2rem 0.35rem;
 }
 
 .data {

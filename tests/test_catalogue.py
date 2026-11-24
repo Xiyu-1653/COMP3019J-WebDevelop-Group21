@@ -59,6 +59,13 @@ class CatalogueQueryTests(unittest.TestCase):
         with connect() as connection, connection.cursor() as cursor:
             self.assertIsNone(queries.get_title(cursor, 999999))
 
+    def test_find_title_id_by_name(self):
+        with connect() as connection, connection.cursor() as cursor:
+            self.assertEqual(queries.find_title_id_by_name(cursor, "Clean Code"), 1)
+            self.assertEqual(queries.find_title_id_by_name(cursor, "clean code"), 1)
+            self.assertIsNone(queries.find_title_id_by_name(cursor, "No Such Title"))
+            self.assertIsNone(queries.find_title_id_by_name(cursor, "   "))
+
     def test_get_copies_for_title(self):
         with connect() as connection, connection.cursor() as cursor:
             copies = queries.get_copies_for_title(cursor, 1)
@@ -198,3 +205,114 @@ class CatalogueQueryTests(unittest.TestCase):
         self.assertEqual(rows[0]["borrow_count"], expected[0]["borrow_count"])
         counts = [r["borrow_count"] for r in rows]
         self.assertEqual(counts, sorted(counts, reverse=True))
+
+
+@unittest.skipUnless(_database_configured(), "No database configured; set DATABASE_URL")
+class CatalogueWriteTests(unittest.TestCase):
+    def test_create_title_and_reject_duplicate_isbn(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                new_id = queries.create_title(
+                    cursor, isbn="1111111111111", title="Write Test Book",
+                    author="Tester", category="Testing",
+                )
+                self.assertTrue(new_id)
+                with self.assertRaisesRegex(queries.CatalogueError, "ISBN"):
+                    queries.create_title(
+                        cursor, isbn="1111111111111", title="Dup",
+                        author="X", category="Y",
+                    )
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_create_title_requires_fields(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                with self.assertRaisesRegex(queries.CatalogueError, "required"):
+                    queries.create_title(
+                        cursor, isbn="", title="T", author="A", category="C"
+                    )
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_update_title_and_reject_duplicate_isbn(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                queries.update_title(
+                    cursor, 1, isbn="9780132350884", title="Clean Code (2e)",
+                    author="Robert C. Martin", category="Computing",
+                )
+                cursor.execute("SELECT title FROM title WHERE title_id = 1")
+                self.assertEqual(cursor.fetchone()["title"], "Clean Code (2e)")
+                with self.assertRaisesRegex(queries.CatalogueError, "ISBN"):
+                    queries.update_title(
+                        cursor, 1, isbn="9780262033848", title="X",
+                        author="Y", category="Z",
+                    )
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_create_copy_validation(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                copy_id = queries.create_copy(
+                    cursor, title_id=1, barcode="KB-TEST-999",
+                    status="available", location="T-99",
+                )
+                self.assertTrue(copy_id)
+                with self.assertRaisesRegex(queries.CatalogueError, "barcode"):
+                    queries.create_copy(cursor, title_id=1, barcode="KB-TEST-999")
+                with self.assertRaisesRegex(queries.CatalogueError, "title"):
+                    queries.create_copy(cursor, title_id=999999, barcode="KB-TEST-998")
+                with self.assertRaisesRegex(queries.CatalogueError, "status"):
+                    queries.create_copy(
+                        cursor, title_id=1, barcode="KB-TEST-997", status="borrowed"
+                    )
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_update_copy_status_transitions(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                # Copy 1 (KB-0001) is available in the seed.
+                queries.update_copy_status(cursor, 1, "damaged")
+                cursor.execute("SELECT status, location FROM copy WHERE copy_id = 1")
+                row = cursor.fetchone()
+                self.assertEqual(row["status"], "damaged")
+                self.assertEqual(row["location"], "Repair room")
+
+                queries.update_copy_status(cursor, 1, "available")
+                cursor.execute("SELECT status FROM copy WHERE copy_id = 1")
+                self.assertEqual(cursor.fetchone()["status"], "available")
+
+                # A borrowed copy (copy 2) must not be changed from inventory.
+                with self.assertRaisesRegex(queries.CatalogueError, "loan or reserved"):
+                    queries.update_copy_status(cursor, 2, "lost")
+
+                with self.assertRaisesRegex(queries.CatalogueError, "status"):
+                    queries.update_copy_status(cursor, 1, "borrowed")
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_create_copy_auto_generates_barcode(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                copy_id = queries.create_copy(cursor, title_id=1, barcode="")
+                cursor.execute(
+                    "SELECT barcode FROM copy WHERE copy_id = %s", (copy_id,)
+                )
+                self.assertRegex(cursor.fetchone()["barcode"], r"^KB-\d{4,}$")
+        finally:
+            connection.rollback()
+            connection.close()

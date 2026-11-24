@@ -136,38 +136,176 @@ def title_detail(title_id):
     return render_template("catalogue/title.html", title=title, copies=copies), status
 
 
+def _render_inventory(catalogue, error=None, copy_form=None):
+    titles, categories = [], []
+    load_error = None
+    try:
+        with catalogue["connect"]() as connection, connection.cursor() as cursor:
+            titles = catalogue["queries"].get_all_titles(cursor)
+            categories = catalogue["queries"].get_categories(cursor)
+    except Exception as exc:
+        load_error = str(exc)
+    form = copy_form or {}
+    return render_template(
+        "catalogue/inventory.html",
+        titles=titles,
+        categories=categories,
+        error=error or load_error,
+        copy_title=form.get("title", ""),
+        copy_barcode=form.get("barcode", ""),
+        copy_status=form.get("status", "available"),
+        copy_location=form.get("location", ""),
+    )
+
+
 @catalogue_bp.get("/inventory")
 @librarian_required
 def inventory():
-    return _placeholder(
-        "Inventory",
-        "Librarian add/edit title and copy tools go here.",
+    catalogue = load_catalogue()
+    if catalogue is None:
+        return _placeholder(
+            "Inventory",
+            "Librarian add/edit title and copy tools go here.",
+        )
+    return _render_inventory(catalogue)
+
+
+@catalogue_bp.get("/titles/<int:title_id>/edit")
+@librarian_required
+def edit_title(title_id):
+    catalogue = load_catalogue()
+    if catalogue is None:
+        return _placeholder("Edit title", "Title editing tools go here.")
+    try:
+        with catalogue["connect"]() as connection, connection.cursor() as cursor:
+            title = catalogue["queries"].get_title(cursor, title_id)
+            categories = catalogue["queries"].get_categories(cursor)
+    except Exception as exc:
+        return _placeholder("Edit title", f"Could not load the title: {exc}")
+    if title is None:
+        flash("That title does not exist.")
+        return redirect(url_for("catalogue.inventory"))
+    return render_template(
+        "catalogue/title_edit.html", title=title, categories=categories
     )
 
 
 @catalogue_bp.post("/titles")
 @librarian_required
 def create_title():
-    flash("Adding a title is not implemented yet.")
+    catalogue = load_catalogue()
+    if catalogue is None:
+        flash("Adding a title is not implemented yet.")
+        return redirect(url_for("catalogue.inventory"))
+    try:
+        with catalogue["connect"]() as connection, connection.cursor() as cursor:
+            catalogue["queries"].create_title(
+                cursor,
+                isbn=request.form.get("isbn", ""),
+                title=request.form.get("title", ""),
+                author=request.form.get("author", ""),
+                category=request.form.get("category", ""),
+                description=request.form.get("description", ""),
+                has_digital_version=request.form.get("has_digital_version") == "1",
+                cover_url=request.form.get("cover_url", ""),
+            )
+            connection.commit()
+    except Exception as exc:
+        flash(str(exc))
+        return redirect(url_for("catalogue.inventory"))
+    flash("Title added.")
     return redirect(url_for("catalogue.inventory"))
 
 
 @catalogue_bp.post("/titles/<int:title_id>")
 @librarian_required
 def update_title(title_id):
-    flash("Editing a title is not implemented yet.")
+    catalogue = load_catalogue()
+    if catalogue is None:
+        flash("Editing a title is not implemented yet.")
+        return redirect(url_for("catalogue.inventory"))
+    try:
+        with catalogue["connect"]() as connection, connection.cursor() as cursor:
+            catalogue["queries"].update_title(
+                cursor,
+                title_id,
+                isbn=request.form.get("isbn", ""),
+                title=request.form.get("title", ""),
+                author=request.form.get("author", ""),
+                category=request.form.get("category", ""),
+                description=request.form.get("description", ""),
+                has_digital_version=request.form.get("has_digital_version") == "1",
+                cover_url=request.form.get("cover_url", ""),
+            )
+            connection.commit()
+    except Exception as exc:
+        flash(str(exc))
+        return redirect(url_for("catalogue.edit_title", title_id=title_id))
+    flash("Title updated.")
     return redirect(url_for("catalogue.title_detail", title_id=title_id))
 
 
 @catalogue_bp.post("/copies")
 @librarian_required
 def create_copy():
-    flash("Registering a copy is not implemented yet.")
+    catalogue = load_catalogue()
+    if catalogue is None:
+        flash("Registering a copy is not implemented yet.")
+        return redirect(url_for("catalogue.inventory"))
+
+    form = {
+        "title": request.form.get("title", "").strip(),
+        "barcode": request.form.get("barcode", "").strip(),
+        "status": request.form.get("status", "available"),
+        "location": request.form.get("location", "").strip(),
+    }
+    error = None
+    try:
+        with catalogue["connect"]() as connection, connection.cursor() as cursor:
+            title_id = catalogue["queries"].find_title_id_by_name(
+                cursor, form["title"]
+            )
+            if title_id is None:
+                error = "That title does not exist."
+            else:
+                catalogue["queries"].create_copy(
+                    cursor,
+                    title_id=title_id,
+                    barcode=form["barcode"],
+                    status=form["status"],
+                    location=form["location"],
+                )
+                connection.commit()
+    except Exception as exc:
+        error = str(exc)
+
+    if error:
+        return _render_inventory(catalogue, error=error, copy_form=form)
+    flash("Copy registered.")
     return redirect(url_for("catalogue.inventory"))
 
 
 @catalogue_bp.post("/copies/<int:copy_id>/status")
 @librarian_required
 def update_copy_status(copy_id):
-    flash("Updating copy status is not implemented yet.")
+    catalogue = load_catalogue()
+    if catalogue is None:
+        flash("Updating copy status is not implemented yet.")
+        return redirect(url_for("catalogue.inventory"))
+    title_id = request.form.get("title_id", type=int)
+    try:
+        with catalogue["connect"]() as connection, connection.cursor() as cursor:
+            catalogue["queries"].update_copy_status(
+                cursor,
+                copy_id,
+                request.form.get("status", ""),
+                location=request.form.get("location", ""),
+            )
+            connection.commit()
+    except Exception as exc:
+        flash(str(exc))
+    else:
+        flash("Copy status updated.")
+    if title_id:
+        return redirect(url_for("catalogue.title_detail", title_id=title_id))
     return redirect(url_for("catalogue.inventory"))

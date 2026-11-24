@@ -1,9 +1,10 @@
-"""Read-only catalogue queries for the ``title`` and ``copy`` tables.
+"""Catalogue queries and inventory writes for the ``title`` and ``copy`` tables.
 
 Functions follow the project convention used by ``reservation_management``:
-each one receives an open ``DictCursor`` and returns plain dicts. The caller
-owns the connection and any transaction, so these functions never open or
-close connections themselves.
+each one receives an open ``DictCursor``. Read functions return plain dicts;
+write functions raise :class:`CatalogueError` on invalid input. The caller owns
+the connection and any transaction, so these functions never open or close
+connections themselves.
 """
 
 from __future__ import annotations
@@ -197,3 +198,202 @@ def count_titles_matching(
     where, params = _build_filters(q, field, category, available_only)
     cursor.execute("SELECT COUNT(*) AS total FROM title AS t" + where, params)
     return cursor.fetchone()["total"]
+
+
+# ---------------------------------------------------------------------------
+# Inventory writes (librarian add/edit title, register copy, change status).
+# ---------------------------------------------------------------------------
+
+COPY_STATUSES = ("available", "borrowed", "reserved", "damaged", "lost", "under_repair")
+
+# Statuses a librarian may set directly on an idle copy. ``borrowed`` and
+# ``reserved`` are owned by the Borrowing and Reservation modules and are never
+# set from the catalogue inventory page.
+INVENTORY_STATUSES = ("available", "damaged", "lost", "under_repair")
+
+
+class CatalogueError(Exception):
+    """A catalogue write was refused by validation or a business rule."""
+
+
+def _require(value, label):
+    value = (value or "").strip()
+    if not value:
+        raise CatalogueError(f"{label} is required.")
+    return value
+
+
+def _clean_optional(value):
+    value = (value or "").strip()
+    return value or None
+
+
+def _default_location(status):
+    """Location convention for idle copy states (matches the seed data)."""
+    if status in ("damaged", "under_repair"):
+        return "Repair room"
+    if status == "lost":
+        return "Missing"
+    return None
+
+
+def _next_barcode(cursor):
+    """Return the next ``KB-XXXX`` barcode after the highest existing one."""
+    cursor.execute(
+        "SELECT MAX(CAST(SUBSTRING(barcode, 4) AS UNSIGNED)) AS n "
+        "FROM copy WHERE barcode REGEXP '^KB-[0-9]+$'"
+    )
+    row = cursor.fetchone()
+    current = row["n"] if row and row["n"] is not None else 0
+    return f"KB-{int(current) + 1:04d}"
+
+
+def create_title(
+    cursor,
+    *,
+    isbn,
+    title,
+    author,
+    category,
+    description=None,
+    has_digital_version=False,
+    cover_url=None,
+):
+    """Insert a title and return its new ``title_id``."""
+    isbn = _require(isbn, "ISBN")
+    title = _require(title, "Title")
+    author = _require(author, "Author")
+    category = _require(category, "Category")
+    description = _clean_optional(description)
+    cover_url = _clean_optional(cover_url)
+
+    cursor.execute("SELECT 1 FROM title WHERE isbn = %s LIMIT 1", (isbn,))
+    if cursor.fetchone() is not None:
+        raise CatalogueError("A title with that ISBN already exists.")
+
+    cursor.execute(
+        """
+        INSERT INTO title (isbn, title, author, category, description,
+                           has_digital_version, cover_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """,
+        (isbn, title, author, category, description,
+         bool(has_digital_version), cover_url),
+    )
+    return cursor.lastrowid
+
+
+def update_title(
+    cursor,
+    title_id,
+    *,
+    isbn,
+    title,
+    author,
+    category,
+    description=None,
+    has_digital_version=False,
+    cover_url=None,
+):
+    """Update an existing title. Raises ``CatalogueError`` if it does not exist."""
+    isbn = _require(isbn, "ISBN")
+    title = _require(title, "Title")
+    author = _require(author, "Author")
+    category = _require(category, "Category")
+    description = _clean_optional(description)
+    cover_url = _clean_optional(cover_url)
+
+    cursor.execute(
+        "SELECT title_id FROM title WHERE title_id = %s FOR UPDATE", (title_id,)
+    )
+    if cursor.fetchone() is None:
+        raise CatalogueError("That title does not exist.")
+
+    cursor.execute(
+        "SELECT 1 FROM title WHERE isbn = %s AND title_id <> %s LIMIT 1",
+        (isbn, title_id),
+    )
+    if cursor.fetchone() is not None:
+        raise CatalogueError("A title with that ISBN already exists.")
+
+    cursor.execute(
+        """
+        UPDATE title
+        SET isbn = %s, title = %s, author = %s, category = %s,
+            description = %s, has_digital_version = %s, cover_url = %s
+        WHERE title_id = %s
+        """,
+        (isbn, title, author, category, description,
+         bool(has_digital_version), cover_url, title_id),
+    )
+
+
+def find_title_id_by_name(cursor, name):
+    """Return the ``title_id`` matching a title name, or ``None`` if no match.
+
+    Match is exact but case-insensitive (MySQL's ``*_ci`` collation). If several
+    titles share the name, the lowest ``title_id`` wins.
+    """
+    name = (name or "").strip()
+    if not name:
+        return None
+    cursor.execute(
+        "SELECT title_id FROM title WHERE title = %s ORDER BY title_id LIMIT 1",
+        (name,),
+    )
+    row = cursor.fetchone()
+    return row["title_id"] if row else None
+
+
+def create_copy(cursor, *, title_id, barcode, status="available", location=None):
+    """Register a physical copy for a title and return its new ``copy_id``."""
+    if status not in INVENTORY_STATUSES:
+        raise CatalogueError("Invalid copy status.")
+    barcode = (barcode or "").strip()
+    if not barcode:
+        barcode = _next_barcode(cursor)
+    location = _clean_optional(location) or _default_location(status)
+
+    cursor.execute("SELECT title_id FROM title WHERE title_id = %s", (title_id,))
+    if cursor.fetchone() is None:
+        raise CatalogueError("That title does not exist.")
+
+    cursor.execute("SELECT 1 FROM copy WHERE barcode = %s LIMIT 1", (barcode,))
+    if cursor.fetchone() is not None:
+        raise CatalogueError("A copy with that barcode already exists.")
+
+    cursor.execute(
+        "INSERT INTO copy (title_id, barcode, status, location) "
+        "VALUES (%s, %s, %s, %s)",
+        (title_id, barcode, status, location),
+    )
+    return cursor.lastrowid
+
+
+def update_copy_status(cursor, copy_id, status, location=None):
+    """Change a copy's status between the idle inventory states.
+
+    Only transitions among ``available``, ``damaged``, ``lost`` and
+    ``under_repair`` are allowed. ``borrowed`` and ``reserved`` copies are
+    owned by the Borrowing and Reservation modules and are left untouched.
+    """
+    if status not in INVENTORY_STATUSES:
+        raise CatalogueError("Invalid copy status.")
+
+    cursor.execute(
+        "SELECT copy_id, status FROM copy WHERE copy_id = %s FOR UPDATE",
+        (copy_id,),
+    )
+    copy = cursor.fetchone()
+    if copy is None:
+        raise CatalogueError("That copy does not exist.")
+    if copy["status"] not in INVENTORY_STATUSES:
+        raise CatalogueError(
+            "This copy is currently on loan or reserved and cannot be changed here."
+        )
+
+    location = _clean_optional(location) or _default_location(status)
+    cursor.execute(
+        "UPDATE copy SET status = %s, location = %s WHERE copy_id = %s",
+        (status, location, copy_id),
+    )
