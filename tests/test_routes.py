@@ -80,6 +80,13 @@ class RouteTests(unittest.TestCase):
     def test_reader_forbidden_from_queue_administration(self):
         self.login_session(); self.assertEqual(self.client.get('/desk/reservations').status_code,403)
 
+    def test_reservation_history_is_librarian_only(self):
+        self.login_session()
+        self.assertEqual(self.client.get('/desk/reservations/history').status_code,302)
+        self.login_session('librarian')
+        with patch('app.blueprints.reservations.load_reservations',return_value=None):
+            self.assertEqual(self.client.get('/desk/reservations/history').status_code,200)
+
 
 class CatalogueRouteTests(unittest.TestCase):
     def setUp(self):

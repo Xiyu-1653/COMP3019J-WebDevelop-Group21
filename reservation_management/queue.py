@@ -1,5 +1,12 @@
 """FIFO queries for waiting reservations."""
 
+RESERVATION_STATUSES = ("waiting", "ready", "fulfilled", "cancelled", "expired")
+
+
+def _escape_like(value):
+    """Escape LIKE wildcards so user input is matched literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
 
 def get_waiting_queue(cursor, title_id):
     """Return waiting reservations for a title, oldest first."""
@@ -14,7 +21,10 @@ def get_waiting_queue(cursor, title_id):
         """,
         (title_id,),
     )
-    return cursor.fetchall()
+    rows = cursor.fetchall()
+    for position, row in enumerate(rows, start=1):
+        row["queue_position"] = position
+    return rows
 
 
 def find_waiting_queues(cursor, keyword, limit=50):
@@ -61,6 +71,41 @@ def get_reader_reservations(cursor, reader_id):
                  r.reserved_at DESC, r.reservation_id DESC
         """,
         (reader_id,),
+    )
+    return cursor.fetchall()
+
+
+def get_reservation_history(cursor, status=None, keyword=None, limit=200):
+    """Return reservation records for the librarian history page.
+
+    ``status`` filters by reservation status; ``keyword`` matches the reader
+    username or book title. Results are newest first, capped by ``limit``.
+    """
+    clauses = []
+    params = []
+    if status in RESERVATION_STATUSES:
+        clauses.append("r.status = %s")
+        params.append(status)
+    if keyword:
+        pattern = f"%{_escape_like(keyword)}%"
+        clauses.append("(u.username LIKE %s OR t.title LIKE %s)")
+        params.extend([pattern, pattern])
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    cursor.execute(
+        f"""
+        SELECT r.reservation_id, r.status, r.reader_id, u.username,
+               r.title_id, t.title, r.reserved_at, r.collect_deadline,
+               r.allocated_copy_id, c.barcode AS copy_barcode
+        FROM reservation AS r
+        JOIN user AS u ON u.user_id = r.reader_id
+        JOIN title AS t ON t.title_id = r.title_id
+        LEFT JOIN copy AS c ON c.copy_id = r.allocated_copy_id
+        {where}
+        ORDER BY r.reserved_at DESC, r.reservation_id DESC
+        LIMIT %s
+        """,
+        params + [limit],
     )
     return cursor.fetchall()
 

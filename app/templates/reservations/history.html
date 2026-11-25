@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Reservation management · Know Book{% endblock %}
+{% block content %}
+  <h1>Reservation management</h1>
+  <p class="module-label">Librarian view · Reservation &amp; Inventory Management</p>
+  <p>
+    <a href="{{ url_for('reservations.queue_admin') }}">Queue search</a>
+    · <strong>History</strong>
+  </p>
+
+  <h2>Reservation history</h2>
+  <p>All reservation records, newest first. Showing up to {{ limit }} records.</p>
+
+  {% if error %}
+    <p class="flash">{{ error }}</p>
+  {% endif %}
+
+  <form method="get" action="{{ url_for('reservations.reservation_history') }}" class="login-form">
+    <label>
+      Status
+      <select name="status">
+        <option value="" {{ 'selected' if not status }}>All statuses</option>
+        <option value="waiting" {{ 'selected' if status == 'waiting' }}>Waiting</option>
+        <option value="ready" {{ 'selected' if status == 'ready' }}>Ready</option>
+        <option value="fulfilled" {{ 'selected' if status == 'fulfilled' }}>Fulfilled</option>
+        <option value="cancelled" {{ 'selected' if status == 'cancelled' }}>Cancelled</option>
+        <option value="expired" {{ 'selected' if status == 'expired' }}>Expired</option>
+      </select>
+    </label>
+    <label>
+      Reader or book
+      <input type="search" name="q" value="{{ keyword }}" placeholder="e.g. alice or Algorithms">
+    </label>
+    <button type="submit">Filter</button>
+    {% if status or keyword %}
+      <a href="{{ url_for('reservations.reservation_history') }}">Clear filters</a>
+    {% endif %}
+  </form>
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>ID</th><th>Status</th><th>Reader</th><th>Book</th>
+        <th>Reserved at</th><th>Deadline</th><th>Copy</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.reservation_id }}</td>
+          <td>{{ row.status|capitalize }}</td>
+          <td>{{ row.username }}</td>
+          <td>{{ row.title }}</td>
+          <td>{{ row.reserved_at }}</td>
+          <td>{{ row.collect_deadline or "—" }}</td>
+          <td>{{ row.copy_barcode or "—" }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7">No reservation records match your filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p><a href="{{ url_for('reservations.queue_admin') }}">← Back to queue search</a></p>
+{% endblock %}

@@ -7,31 +7,37 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  {% set ep = request.endpoint or '' %}
+  {% macro nav_link(label, href, active) -%}
+    <a class="nav-link{% if active %} is-active{% endif %}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>{{ label }}</a>
+  {%- endmacro %}
   <header class="site-header">
     <a class="brand" href="{{ url_for('home') }}">Know Book</a>
     <nav class="site-nav" aria-label="Main">
       {% if current_user %}
-        <a href="{{ url_for('catalogue.index') }}">Catalogue</a>
+        {{ nav_link('Catalogue', url_for('catalogue.index'), ep in ('catalogue.index', 'catalogue.title_detail')) }}
         {% if current_user.role == "reader" %}
-          <a href="{{ url_for('account.loans') }}">My loans</a>
-          <a href="{{ url_for('account.fees') }}">Fees</a>
-          <a href="{{ url_for('reservations.my_reservations') }}">My reservations</a>
+          {{ nav_link('My loans', url_for('account.loans'), ep in ('account.loans', 'account.renew_loan')) }}
+          {{ nav_link('Fees', url_for('account.fees'), ep in ('account.fees', 'account.pay_fee')) }}
+          {{ nav_link('My reservations', url_for('reservations.my_reservations'), ep == 'reservations.my_reservations') }}
         {% elif current_user.role == "librarian" %}
-          <a href="{{ url_for('desk.index') }}">Desk</a>
-          <a href="{{ url_for('desk.overdue') }}">Overdue</a>
-          <a href="{{ url_for('catalogue.inventory') }}">Inventory</a>
-          <a href="{{ url_for('reservations.queue_admin') }}">Reservation queues</a>
+          {{ nav_link('Desk', url_for('desk.index'), ep in ('desk.index', 'desk.borrow', 'desk.return_copy')) }}
+          {{ nav_link('Overdue', url_for('desk.overdue'), ep in ('desk.overdue', 'desk.generate_fees')) }}
+          {{ nav_link('Inventory', url_for('catalogue.inventory'), ep in ('catalogue.inventory', 'catalogue.edit_title', 'catalogue.create_title', 'catalogue.create_copy', 'catalogue.update_title', 'catalogue.update_copy_status')) }}
+          {{ nav_link('Reservation management', url_for('reservations.queue_admin'), ep in ('reservations.queue_admin', 'reservations.reservation_history')) }}
         {% endif %}
-        <span class="nav-user">{{ current_user.username }}</span>
-      {% else %}
-        <a href="{{ url_for('auth.login') }}">Login</a>
       {% endif %}
     </nav>
-    {% if current_user %}
-      <form class="logout" method="post" action="{{ url_for('auth.logout') }}">
-        <button type="submit">Logout</button>
-      </form>
-    {% endif %}
+    <div class="site-actions">
+      {% if current_user %}
+        <span class="nav-user">{{ current_user.username }}</span>
+        <form class="logout" method="post" action="{{ url_for('auth.logout') }}">
+          <button type="submit">Logout</button>
+        </form>
+      {% else %}
+        <a class="login-link{% if ep in ('auth.login', 'auth.login_submit') %} is-active{% endif %}" href="{{ url_for('auth.login') }}"{% if ep in ('auth.login', 'auth.login_submit') %} aria-current="page"{% endif %}>Login</a>
+      {% endif %}
+    </div>
   </header>
 
   <main class="site-main">
