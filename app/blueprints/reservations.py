@@ -96,6 +96,50 @@ def queue_admin():
     )
 
 
+RESERVATION_HISTORY_LIMIT = 200
+
+
+@reservations_bp.get("/desk/reservations/history")
+@librarian_required
+def reservation_history():
+    """Read-only list of every reservation record, newest first."""
+    reservations = load_reservations()
+    if reservations is None:
+        return render_template(
+            "placeholder.html",
+            heading="Reservation history",
+            module="Reservation & Inventory Management",
+            detail="Reservation history fills in when reservation_management is in the working tree.",
+        )
+
+    status = request.args.get("status", "").strip()
+    keyword = request.args.get("q", "").strip()
+    if status not in reservations["queue"].RESERVATION_STATUSES:
+        status = ""
+
+    rows = []
+    error = None
+    try:
+        with reservations["connect"]() as connection, connection.cursor() as cursor:
+            rows = reservations["queue"].get_reservation_history(
+                cursor,
+                status=status or None,
+                keyword=keyword or None,
+                limit=RESERVATION_HISTORY_LIMIT,
+            )
+    except Exception as exc:
+        error = str(exc)
+
+    return render_template(
+        "reservations/history.html",
+        rows=rows,
+        status=status,
+        keyword=keyword,
+        limit=RESERVATION_HISTORY_LIMIT,
+        error=error,
+    )
+
+
 @reservations_bp.post("/title/<int:title_id>/reserve")
 @login_required
 def place_hold(title_id):

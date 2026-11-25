@@ -1,8 +1,33 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from reservation_management import allocation, collection, expiration
+from reservation_management import allocation, collection, expiration, queue
 
 class ReservationTests(unittest.TestCase):
+    def test_waiting_queue_positions_renumber_from_one(self):
+        c=MagicMock(); c.fetchall.return_value=[
+            {'reservation_id':3,'username':'frank'},
+            {'reservation_id':4,'username':'grace'},
+        ]
+        rows=queue.get_waiting_queue(c,2)
+        self.assertEqual([r['queue_position'] for r in rows],[1,2])
+        self.assertEqual([r['reservation_id'] for r in rows],[3,4])
+
+    def test_reservation_history_filters_status_and_keyword(self):
+        c=MagicMock(); c.fetchall.return_value=[{'reservation_id':2}]
+        rows=queue.get_reservation_history(c,status='expired',keyword='alice')
+        self.assertEqual(rows,[{'reservation_id':2}])
+        sql,params=c.execute.call_args.args
+        self.assertIn('r.status = %s',sql)
+        self.assertIn('u.username LIKE %s',sql)
+        self.assertEqual(params,['expired','%alice%','%alice%',200])
+
+    def test_reservation_history_ignores_unknown_status(self):
+        c=MagicMock(); c.fetchall.return_value=[]
+        queue.get_reservation_history(c,status='bogus')
+        sql,params=c.execute.call_args.args
+        self.assertNotIn('WHERE',sql)
+        self.assertEqual(params,[200])
+
     def test_allocate_available_copy_and_notify(self):
         c=MagicMock(); c.fetchone.side_effect=[{'title_id':1,'status':'available'},{'config_value':'3'}]
         with patch.object(allocation,'get_first_waiting_reservation',return_value={'reservation_id':7,'reader_id':2}) as head:

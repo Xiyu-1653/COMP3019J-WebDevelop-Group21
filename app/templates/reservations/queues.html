@@ -1,8 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Reservation queues · Know Book{% endblock %}
+{% block title %}Reservation management · Know Book{% endblock %}
 {% block content %}
-  <h1>Reservation queues</h1>
+  <h1>Reservation management</h1>
   <p class="module-label">Librarian view · Reservation &amp; Inventory Management</p>
+  <p>
+    <strong>Queue search</strong>
+    · <a href="{{ url_for('reservations.reservation_history') }}">History</a>
+  </p>
+
+  <h2>Search a book's waiting queue</h2>
   <form method="get" action="{{ url_for('reservations.queue_admin') }}" class="login-form">
     <label>
       Book title
@@ -18,16 +24,17 @@
       <h2>{{ match.title }}</h2>
       <p class="module-label">{{ match.author }} · {{ match.queue_rows|length }} waiting</p>
       <table class="data">
-        <thead><tr><th>Reservation</th><th>Reader</th><th>Reserved at</th></tr></thead>
+        <thead><tr><th>Position</th><th>Reservation ID</th><th>Reader</th><th>Reserved at</th></tr></thead>
         <tbody>
           {% for row in match.queue_rows %}
             <tr>
+              <td>{{ row.queue_position }}</td>
               <td>{{ row.reservation_id }}</td>
               <td>{{ row.username }} · {{ row.reader_category|replace('_', ' ') }}</td>
               <td>{{ row.reserved_at }}</td>
             </tr>
           {% else %}
-            <tr><td colspan="3">No waiting reservations for this title.</td></tr>
+            <tr><td colspan="4">No waiting reservations for this title.</td></tr>
           {% endfor %}
         </tbody>
       </table>
