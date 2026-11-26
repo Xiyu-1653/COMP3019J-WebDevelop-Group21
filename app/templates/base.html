@@ -24,7 +24,7 @@
           {{ nav_link('Desk', url_for('desk.index'), ep in ('desk.index', 'desk.borrow', 'desk.return_copy')) }}
           {{ nav_link('Overdue', url_for('desk.overdue'), ep in ('desk.overdue', 'desk.generate_fees')) }}
           {{ nav_link('Inventory', url_for('catalogue.inventory'), ep in ('catalogue.inventory', 'catalogue.edit_title', 'catalogue.create_title', 'catalogue.create_copy', 'catalogue.update_title', 'catalogue.update_copy_status')) }}
-          {{ nav_link('Reservation management', url_for('reservations.queue_admin'), ep in ('reservations.queue_admin', 'reservations.reservation_history')) }}
+          {{ nav_link('Reservation management', url_for('reservations.reservation_history'), ep == 'reservations.reservation_history') }}
         {% endif %}
       {% endif %}
     </nav>

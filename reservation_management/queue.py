@@ -75,21 +75,25 @@ def get_reader_reservations(cursor, reader_id):
     return cursor.fetchall()
 
 
-def get_reservation_history(cursor, status=None, keyword=None, limit=200):
+def get_reservation_history(cursor, status=None, book=None, reader=None, limit=200):
     """Return reservation records for the librarian history page.
 
-    ``status`` filters by reservation status; ``keyword`` matches the reader
-    username or book title. Results are newest first, capped by ``limit``.
+    ``status`` filters by reservation status, ``book`` by book title and
+    ``reader`` by username. Results are oldest first. Each row gets a
+    ``row_number`` starting at 1 for the current result set, so filtering by
+    book or reader renumbers that view independently.
     """
     clauses = []
     params = []
     if status in RESERVATION_STATUSES:
         clauses.append("r.status = %s")
         params.append(status)
-    if keyword:
-        pattern = f"%{_escape_like(keyword)}%"
-        clauses.append("(u.username LIKE %s OR t.title LIKE %s)")
-        params.extend([pattern, pattern])
+    if book:
+        clauses.append("t.title LIKE %s")
+        params.append(f"%{_escape_like(book)}%")
+    if reader:
+        clauses.append("u.username LIKE %s")
+        params.append(f"%{_escape_like(reader)}%")
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
     cursor.execute(
@@ -102,12 +106,15 @@ def get_reservation_history(cursor, status=None, keyword=None, limit=200):
         JOIN title AS t ON t.title_id = r.title_id
         LEFT JOIN copy AS c ON c.copy_id = r.allocated_copy_id
         {where}
-        ORDER BY r.reserved_at DESC, r.reservation_id DESC
+        ORDER BY r.reserved_at ASC, r.reservation_id ASC
         LIMIT %s
         """,
         params + [limit],
     )
-    return cursor.fetchall()
+    rows = cursor.fetchall()
+    for position, row in enumerate(rows, start=1):
+        row["row_number"] = position
+    return rows
 
 
 def get_first_waiting_reservation(cursor, title_id, lock=False):

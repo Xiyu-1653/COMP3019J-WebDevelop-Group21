@@ -3,19 +3,26 @@
 {% block content %}
   <h1>Reservation management</h1>
   <p class="module-label">Librarian view · Reservation &amp; Inventory Management</p>
-  <p>
-    <a href="{{ url_for('reservations.queue_admin') }}">Queue search</a>
-    · <strong>History</strong>
-  </p>
 
   <h2>Reservation history</h2>
-  <p>All reservation records, newest first. Showing up to {{ limit }} records.</p>
+  <p>All reservation records, oldest first. Showing up to {{ limit }} records.</p>
+  <p class="module-label">
+    No. restarts at 1 for the current filters. Reservation ID is the database ID and never renumbers.
+  </p>
 
   {% if error %}
     <p class="flash">{{ error }}</p>
   {% endif %}
 
-  <form method="get" action="{{ url_for('reservations.reservation_history') }}" class="login-form">
+  <form method="get" action="{{ url_for('reservations.reservation_history') }}" class="history-filters">
+    <label>
+      Book
+      <input type="search" name="book" value="{{ book }}" placeholder="e.g. Algorithms">
+    </label>
+    <label>
+      Reader
+      <input type="search" name="reader" value="{{ reader }}" placeholder="e.g. alice">
+    </label>
     <label>
       Status
       <select name="status">
@@ -27,26 +34,23 @@
         <option value="expired" {{ 'selected' if status == 'expired' }}>Expired</option>
       </select>
     </label>
-    <label>
-      Reader or book
-      <input type="search" name="q" value="{{ keyword }}" placeholder="e.g. alice or Algorithms">
-    </label>
     <button type="submit">Filter</button>
-    {% if status or keyword %}
-      <a href="{{ url_for('reservations.reservation_history') }}">Clear filters</a>
+    {% if book or reader or status %}
+      <a href="{{ url_for('reservations.reservation_history') }}" class="clear-filters">Clear filters</a>
     {% endif %}
   </form>
 
   <table class="data">
     <thead>
       <tr>
-        <th>ID</th><th>Status</th><th>Reader</th><th>Book</th>
+        <th>No.</th><th>Reservation ID</th><th>Status</th><th>Reader</th><th>Book</th>
         <th>Reserved at</th><th>Deadline</th><th>Copy</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
         <tr>
+          <td>{{ row.row_number }}</td>
           <td>{{ row.reservation_id }}</td>
           <td>{{ row.status|capitalize }}</td>
           <td>{{ row.username }}</td>
@@ -56,10 +60,8 @@
           <td>{{ row.copy_barcode or "—" }}</td>
         </tr>
       {% else %}
-        <tr><td colspan="7">No reservation records match your filters.</td></tr>
+        <tr><td colspan="8">No reservation records match your filters.</td></tr>
       {% endfor %}
     </tbody>
   </table>
-
-  <p><a href="{{ url_for('reservations.queue_admin') }}">← Back to queue search</a></p>
 {% endblock %}
