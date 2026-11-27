@@ -12,14 +12,16 @@ class ReservationTests(unittest.TestCase):
         self.assertEqual([r['queue_position'] for r in rows],[1,2])
         self.assertEqual([r['reservation_id'] for r in rows],[3,4])
 
-    def test_reservation_history_filters_status_and_keyword(self):
-        c=MagicMock(); c.fetchall.return_value=[{'reservation_id':2}]
-        rows=queue.get_reservation_history(c,status='expired',keyword='alice')
-        self.assertEqual(rows,[{'reservation_id':2}])
+    def test_reservation_history_filters_status_book_and_reader(self):
+        c=MagicMock(); c.fetchall.return_value=[{'reservation_id':2},{'reservation_id':3}]
+        rows=queue.get_reservation_history(c,status='expired',book='Algorithms',reader='alice')
+        self.assertEqual([r['row_number'] for r in rows],[1,2])
         sql,params=c.execute.call_args.args
         self.assertIn('r.status = %s',sql)
+        self.assertIn('t.title LIKE %s',sql)
         self.assertIn('u.username LIKE %s',sql)
-        self.assertEqual(params,['expired','%alice%','%alice%',200])
+        self.assertIn('ORDER BY r.reserved_at ASC',sql)
+        self.assertEqual(params,['expired','%Algorithms%','%alice%',200])
 
     def test_reservation_history_ignores_unknown_status(self):
         c=MagicMock(); c.fetchall.return_value=[]

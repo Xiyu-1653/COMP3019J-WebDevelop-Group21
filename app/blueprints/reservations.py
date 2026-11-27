@@ -2,7 +2,6 @@
 
 from flask import (
     Blueprint,
-    abort,
     flash,
     redirect,
     render_template,
@@ -35,7 +34,7 @@ def my_reservations():
         return redirect(url_for("auth.login"))
     if session.get("role") != "reader":
         flash("Reservations belong to reader accounts.")
-        return redirect(url_for("reservations.queue_admin"))
+        return redirect(url_for("reservations.reservation_history"))
 
     reservation_rows = []
     error = None
@@ -56,53 +55,13 @@ def my_reservations():
     )
 
 
-@reservations_bp.get("/desk/reservations")
-def queue_admin():
-    if not session.get("user_id"):
-        flash("Please log in as a librarian to manage reservation queues.")
-        return redirect(url_for("auth.login"))
-    if session.get("role") != "librarian":
-        abort(403)
-
-    reservations = load_reservations()
-    if reservations is None:
-        return render_template(
-            "placeholder.html",
-            heading="Reservation queues",
-            module="Reservation & Inventory Management",
-            detail="Search a book title to see its waiting queue. "
-            "This page fills in when reservation_management is in the working tree.",
-        )
-
-    keyword = request.args.get("q", "").strip()
-    title_results = []
-    error = None
-    if keyword:
-        try:
-            with reservations["connect"]() as connection, connection.cursor() as cursor:
-                reservations["expiration"].process_expired_reservations(cursor)
-                title_results = reservations["queue"].find_waiting_queues(
-                    cursor, keyword
-                )
-                connection.commit()
-        except Exception as exc:
-            error = str(exc)
-
-    return render_template(
-        "reservations/queues.html",
-        keyword=keyword,
-        title_results=title_results,
-        error=error,
-    )
-
-
 RESERVATION_HISTORY_LIMIT = 200
 
 
-@reservations_bp.get("/desk/reservations/history")
+@reservations_bp.get("/desk/reservations")
 @librarian_required
 def reservation_history():
-    """Read-only list of every reservation record, newest first."""
+    """Read-only list of reservation records, oldest first."""
     reservations = load_reservations()
     if reservations is None:
         return render_template(
@@ -113,7 +72,8 @@ def reservation_history():
         )
 
     status = request.args.get("status", "").strip()
-    keyword = request.args.get("q", "").strip()
+    book = request.args.get("book", "").strip()
+    reader = request.args.get("reader", "").strip()
     if status not in reservations["queue"].RESERVATION_STATUSES:
         status = ""
 
@@ -124,7 +84,8 @@ def reservation_history():
             rows = reservations["queue"].get_reservation_history(
                 cursor,
                 status=status or None,
-                keyword=keyword or None,
+                book=book or None,
+                reader=reader or None,
                 limit=RESERVATION_HISTORY_LIMIT,
             )
     except Exception as exc:
@@ -134,9 +95,19 @@ def reservation_history():
         "reservations/history.html",
         rows=rows,
         status=status,
-        keyword=keyword,
+        book=book,
+        reader=reader,
         limit=RESERVATION_HISTORY_LIMIT,
         error=error,
+    )
+
+
+@reservations_bp.get("/desk/reservations/history")
+@librarian_required
+def reservation_history_old():
+    """Keep old links working: /desk/reservations/history -> /desk/reservations."""
+    return redirect(
+        url_for("reservations.reservation_history", **request.args.to_dict())
     )
 
 

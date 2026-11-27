@@ -77,15 +77,18 @@ class RouteTests(unittest.TestCase):
         with patch('app.blueprints.catalogue.load_catalogue',return_value={'connect':connection,'queries':queries}):
             self.assertEqual(self.client.get('/title/999').status_code,404)
 
-    def test_reader_forbidden_from_queue_administration(self):
-        self.login_session(); self.assertEqual(self.client.get('/desk/reservations').status_code,403)
-
-    def test_reservation_history_is_librarian_only(self):
+    def test_reservation_management_is_librarian_only(self):
         self.login_session()
-        self.assertEqual(self.client.get('/desk/reservations/history').status_code,302)
+        self.assertEqual(self.client.get('/desk/reservations').status_code,302)
         self.login_session('librarian')
         with patch('app.blueprints.reservations.load_reservations',return_value=None):
-            self.assertEqual(self.client.get('/desk/reservations/history').status_code,200)
+            self.assertEqual(self.client.get('/desk/reservations').status_code,200)
+
+    def test_old_reservation_history_url_redirects(self):
+        self.login_session('librarian')
+        response=self.client.get('/desk/reservations/history?status=waiting')
+        self.assertEqual(response.status_code,302)
+        self.assertIn('/desk/reservations',response.location)
 
 
 class CatalogueRouteTests(unittest.TestCase):
