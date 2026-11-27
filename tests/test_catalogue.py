@@ -150,6 +150,11 @@ class CatalogueQueryTests(unittest.TestCase):
             rows = queries.search_titles(cursor, q="978-0-13-235088-4", field="isbn")
         self.assertEqual([r["isbn"] for r in rows], ["9780132350884"])
 
+    def test_search_all_field_matches_hyphenated_isbn(self):
+        with connect() as connection, connection.cursor() as cursor:
+            rows = queries.search_titles(cursor, q="978-0-13-235088-4", field="all")
+        self.assertEqual([r["isbn"] for r in rows], ["9780132350884"])
+
     def test_search_combined_category_and_availability(self):
         with connect() as connection, connection.cursor() as cursor:
             rows = queries.search_titles(
@@ -234,6 +239,26 @@ class CatalogueWriteTests(unittest.TestCase):
                 with self.assertRaisesRegex(queries.CatalogueError, "required"):
                     queries.create_title(
                         cursor, isbn="", title="T", author="A", category="C"
+                    )
+        finally:
+            connection.rollback()
+            connection.close()
+
+    def test_create_title_normalises_isbn(self):
+        connection = connect()
+        try:
+            with connection.cursor() as cursor:
+                new_id = queries.create_title(
+                    cursor, isbn="978-9-99-999999-9", title="Hyphen Test",
+                    author="A", category="C",
+                )
+                cursor.execute("SELECT isbn FROM title WHERE title_id = %s", (new_id,))
+                self.assertEqual(cursor.fetchone()["isbn"], "9789999999999")
+                # A hyphen-variant of an existing ISBN is rejected as a duplicate.
+                with self.assertRaisesRegex(queries.CatalogueError, "ISBN"):
+                    queries.create_title(
+                        cursor, isbn="978-0-13-235088-4", title="Dup",
+                        author="X", category="Y",
                     )
         finally:
             connection.rollback()

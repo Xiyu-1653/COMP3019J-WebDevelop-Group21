@@ -74,3 +74,44 @@ After finding an item, search for a reader using a username prefix or an exact u
 Each item's loan history is ordered by newest loan first and shows 10 records per page. Previous and Next retain the item barcode and reader search. Invalid page numbers fall back to page 1; requests beyond the last page show the last page.
 
 Reader search also filters the selected item's loan history and its page count. Clear the search or select Show all readers' loan records to view the item's full history. A single matching checkout borrower is displayed directly; multiple matches require choosing the exact borrower.
+
+## Reader self-service desk
+
+All reader categories can open Desk from the navigation. Search by title keyword,
+full title, author or exact barcode, then borrow an available physical copy.
+The desk lists only the signed-in reader's active loans with Return buttons.
+Borrower identity comes from the session; readers cannot return other readers' loans.
+The librarian desk and overdue administration retain their existing behavior.
+
+### Existing database upgrade
+
+Apply `database/04_self_service.sql` once to each existing database, without resetting
+or reseeding it. This makes `loan.librarian_id` nullable: NULL records a self-service
+checkout; librarian-assisted loans still record the librarian ID. New installations
+already have this definition in `database/01_schema.sql`.
+
+The database configured for this development session was upgraded on 2026-11-27.
+Other team databases need the same migration before using self-service checkout.
+
+### Concurrency verification
+
+Checkout locks the physical copy with `SELECT ... FOR UPDATE`, validates reader
+eligibility under the reader lock, and commits loan creation and copy status together.
+The existing unique open-loan constraint provides a second database safeguard.
+Active-loan eligibility queries use locking reads so a concurrent checkout by the same
+reader cannot validate limits against an older transaction snapshot.
+Return checks ownership while holding the copy lock, then closes the loan, generates
+fees and allocates any waiting reservation in the existing transaction.
+
+Run the existing suite with `python -m unittest discover -v`.
+For a real database contention test after applying the migration:
+
+```powershell
+$env:RUN_CIRCULATION_DB_TESTS = '1'
+python -m unittest tests.test_circulation_concurrency -v
+Remove-Item Env:RUN_CIRCULATION_DB_TESTS
+```
+
+This test creates two temporary readers and one title/copy, races their checkouts,
+checks that exactly one succeeds, checks return ownership, and deletes its fixture
+rows in cleanup. Run against a development database.

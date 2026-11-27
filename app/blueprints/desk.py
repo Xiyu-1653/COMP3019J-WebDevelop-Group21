@@ -9,7 +9,7 @@ Implemented on the Borrow_Return branch as ``borrow_return/service.py``:
 
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
-from app.blueprints.auth import librarian_required
+from app.blueprints.auth import librarian_required, role_required
 from app.integrations import load_circulation
 from borrow_return.fees import generate_all_overdue_fees, load_overdue_loans
 
@@ -26,7 +26,7 @@ def _placeholder(heading, detail):
 
 
 @desk_bp.get("/desk")
-@librarian_required
+@role_required("reader", "librarian")
 def index():
     circulation = load_circulation()
     if circulation is None:
@@ -42,6 +42,14 @@ def index():
             "The borrow_return folder is present. Add borrow_return/service.py "
             "with desk_context, borrow and return_copy.",
         )
+    if session.get("role") == "reader":
+        query = request.args.get("q", request.args.get("barcode", "")).strip()
+        try:
+            context = service.reader_desk_context(session["user_id"], query)
+        except Exception:
+            context = {"query": query, "copies": [], "loans": [],
+                       "error": "Could not load the desk. Please try again."}
+        return render_template("borrow_return/self_service.html", **context)
     try:
         context = service.desk_context(
             barcode=request.args.get("barcode", ""),
@@ -78,7 +86,7 @@ def generate_fees():
 
 
 @desk_bp.post("/desk/borrow")
-@librarian_required
+@role_required("reader", "librarian")
 def borrow():
     circulation = load_circulation()
     service = circulation.get("service") if circulation else None
@@ -87,16 +95,18 @@ def borrow():
         return redirect(url_for("desk.index"))
     barcode = request.form.get("barcode", "").strip()
     try:
-        service.borrow(
-            request.form.get("reader_id", type=int),
-            barcode,
-            session["user_id"],
-        )
+        if session["role"] == "reader":
+            service.self_borrow(session["user_id"], barcode)
+        else:
+            service.borrow(
+                request.form.get("reader_id", type=int), barcode, session["user_id"]
+            )
         flash("Copy issued.")
     except Exception as exc:
         flash(str(exc))
     return redirect(url_for(
         "desk.index",
+        q=request.form.get("q", "").strip(),
         barcode=barcode,
         reader_query=request.form.get("reader_query", "").strip(),
         page=request.form.get("page", 1, type=int),
@@ -104,7 +114,7 @@ def borrow():
 
 
 @desk_bp.post("/desk/return")
-@librarian_required
+@role_required("reader", "librarian")
 def return_copy():
     circulation = load_circulation()
     service = circulation.get("service") if circulation else None
@@ -113,7 +123,10 @@ def return_copy():
         return redirect(url_for("desk.index"))
     barcode = request.form.get("barcode", "").strip()
     try:
-        reservation_id = service.return_copy(barcode)
+        if session["role"] == "reader":
+            reservation_id = service.return_copy(barcode, reader_id=session["user_id"])
+        else:
+            reservation_id = service.return_copy(barcode)
         if reservation_id is None:
             flash("Copy returned.")
         else:
@@ -122,6 +135,7 @@ def return_copy():
         flash(str(exc))
     return redirect(url_for(
         "desk.index",
+        q=request.form.get("q", "").strip(),
         barcode=barcode,
         reader_query=request.form.get("reader_query", "").strip(),
         page=request.form.get("page", 1, type=int),

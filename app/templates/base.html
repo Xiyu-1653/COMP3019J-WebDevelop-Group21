@@ -17,6 +17,7 @@
       {% if current_user %}
         {{ nav_link('Catalogue', url_for('catalogue.index'), ep in ('catalogue.index', 'catalogue.title_detail')) }}
         {% if current_user.role == "reader" %}
+          {{ nav_link('Desk', url_for('desk.index'), ep in ('desk.index', 'desk.borrow', 'desk.return_copy')) }}
           {{ nav_link('My loans', url_for('account.loans'), ep in ('account.loans', 'account.renew_loan')) }}
           {{ nav_link('Fees', url_for('account.fees'), ep in ('account.fees', 'account.pay_fee')) }}
           {{ nav_link('My reservations', url_for('reservations.my_reservations'), ep == 'reservations.my_reservations') }}

@@ -125,7 +125,7 @@ def _escape_like(value):
 
 def _normalise_isbn(value):
     """Remove spaces and hyphens so ISBN-10/ISBN-13 variants match one field."""
-    return re.sub(r"[\s-]+", "", value)
+    return re.sub(r"[\s-]+", "", value or "")
 
 
 def _build_filters(q=None, field="all", category=None, available_only=False):
@@ -137,25 +137,22 @@ def _build_filters(q=None, field="all", category=None, available_only=False):
     clauses = []
     params = []
     if q:
-        if field == "isbn":
-            term = _normalise_isbn(q)
-        else:
-            term = q
-        pattern = f"%{_escape_like(term)}%"
+        raw_pattern = f"%{_escape_like(q)}%"
+        isbn_pattern = f"%{_escape_like(_normalise_isbn(q))}%"
         if field == "title":
             clauses.append("t.title LIKE %s")
-            params.append(pattern)
+            params.append(raw_pattern)
         elif field == "author":
             clauses.append("t.author LIKE %s")
-            params.append(pattern)
+            params.append(raw_pattern)
         elif field == "isbn":
             clauses.append("t.isbn LIKE %s")
-            params.append(pattern)
-        else:  # "all": title, author or ISBN
+            params.append(isbn_pattern)
+        else:  # "all": title or author (raw) or ISBN (hyphen-insensitive)
             clauses.append(
                 "(t.title LIKE %s OR t.author LIKE %s OR t.isbn LIKE %s)"
             )
-            params.extend([pattern, pattern, pattern])
+            params.extend([raw_pattern, raw_pattern, isbn_pattern])
     if category:
         clauses.append("t.category = %s")
         params.append(category)
@@ -260,7 +257,7 @@ def create_title(
     cover_url=None,
 ):
     """Insert a title and return its new ``title_id``."""
-    isbn = _require(isbn, "ISBN")
+    isbn = _require(_normalise_isbn(isbn), "ISBN")
     title = _require(title, "Title")
     author = _require(author, "Author")
     category = _require(category, "Category")
@@ -296,7 +293,7 @@ def update_title(
     cover_url=None,
 ):
     """Update an existing title. Raises ``CatalogueError`` if it does not exist."""
-    isbn = _require(isbn, "ISBN")
+    isbn = _require(_normalise_isbn(isbn), "ISBN")
     title = _require(title, "Title")
     author = _require(author, "Author")
     category = _require(category, "Category")

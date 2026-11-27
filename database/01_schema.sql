@@ -93,7 +93,7 @@ CREATE TABLE loan (
     loan_id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
     reader_id      INT UNSIGNED NOT NULL,
     copy_id        INT UNSIGNED NOT NULL,
-    librarian_id   INT UNSIGNED NOT NULL,
+    librarian_id   INT UNSIGNED NULL, -- NULL for reader self-service
     borrowed_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     due_at         DATETIME     NOT NULL,
     returned_at    DATETIME     NULL,

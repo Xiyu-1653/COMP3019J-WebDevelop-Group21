@@ -143,10 +143,18 @@ def borrow(reader_id, barcode, librarian_id):
         connection.commit()
 
 
-def return_copy(barcode):
+def return_copy(barcode, reader_id=None):
     """Close the item's loan and update its status in one transaction."""
     with connect() as connection, connection.cursor() as cursor:
         copy = _lock_copy(cursor, barcode)
+        if reader_id is not None:
+            cursor.execute(
+                "SELECT reader_id FROM loan WHERE copy_id = %s "
+                "AND returned_at IS NULL FOR UPDATE", (copy["copy_id"],)
+            )
+            loan = cursor.fetchone()
+            if loan is None or loan["reader_id"] != reader_id:
+                raise DeskError("You can only return your own active loans.")
         reservation_id = _close_loan(cursor, copy)
         generate_overdue_fees(cursor, copy["copy_id"])
         connection.commit()
@@ -169,7 +177,7 @@ def _issue_loan(cursor, reader_id, librarian_id, copy):
         """
         SELECT c.title_id, l.due_at < NOW() AS overdue
         FROM loan AS l JOIN copy AS c USING (copy_id)
-        WHERE l.reader_id = %s AND l.returned_at IS NULL
+        WHERE l.reader_id = %s AND l.returned_at IS NULL FOR UPDATE
         """,
         (reader_id,),
     )
@@ -224,3 +232,39 @@ def _close_loan(cursor, copy):
 
     # Allocation uses the same cursor so the return and reservation commit together.
     return allocate_available_copy(cursor, copy["copy_id"])
+
+
+def self_borrow(reader_id, barcode):
+    """Issue to the authenticated reader; NULL librarian means self-service."""
+    with connect() as connection, connection.cursor() as cursor:
+        copy = _lock_copy(cursor, barcode)
+        _issue_loan(cursor, reader_id, None, copy)
+        connection.commit()
+
+
+def reader_desk_context(reader_id, query=""):
+    """Search physical copies and show only this reader's active loans."""
+    query = query.strip()
+    copies = []
+    with connect() as connection, connection.cursor() as cursor:
+        if query:
+            keyword = "%" + query.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+            cursor.execute(
+                "SELECT c.barcode, c.status, c.location, t.title, t.author "
+                "FROM copy AS c JOIN title AS t USING (title_id) "
+                "WHERE c.barcode = %s OR t.title LIKE %s ESCAPE '!' "
+                "OR t.author LIKE %s ESCAPE '!' "
+                "ORDER BY (c.barcode = %s) DESC, t.title, c.barcode LIMIT 51",
+                (query, keyword, keyword, query),
+            )
+            copies = cursor.fetchall()
+        cursor.execute(
+            "SELECT c.barcode, t.title, l.borrowed_at, l.due_at "
+            "FROM loan AS l JOIN copy AS c USING (copy_id) "
+            "JOIN title AS t USING (title_id) "
+            "WHERE l.reader_id = %s AND l.returned_at IS NULL "
+            "ORDER BY l.due_at, l.loan_id", (reader_id,),
+        )
+        loans = cursor.fetchall()
+    return {"query": query, "copies": copies[:50], "truncated": len(copies) > 50,
+            "loans": loans, "error": None}
