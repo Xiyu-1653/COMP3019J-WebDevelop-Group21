@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Borrowing & Returns · Know Book{% endblock %}
+{% block content %}
+<h1>Borrowing &amp; Returns</h1>
+<p class="module-label">Self-service desk</p>
+<form method="get" action="{{ url_for('desk.index') }}" class="login-form">
+  <label>Book title, keyword, author or barcode
+    <input type="text" name="q" value="{{ query }}" placeholder="Search for a book" required>
+  </label>
+  <button type="submit">Find item</button>
+</form>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if query %}
+<h2>Search results</h2>
+{% if truncated %}<p>Showing the first 50 copies. Refine your search for more specific results.</p>{% endif %}
+<table class="data">
+<thead><tr><th>Book</th><th>Author</th><th>Barcode</th><th>Location</th><th>Status</th><th>Borrow</th></tr></thead>
+<tbody>
+{% for copy in copies %}
+<tr><td>{{ copy.title }}</td><td>{{ copy.author }}</td><td>{{ copy.barcode }}</td><td>{{ copy.location or '—' }}</td><td>{{ copy.status | replace('_', ' ') | capitalize }}</td>
+<td><form method="post" action="{{ url_for('desk.borrow') }}">
+<input type="hidden" name="barcode" value="{{ copy.barcode }}"><input type="hidden" name="q" value="{{ query }}">
+<button type="submit" {% if copy.status != 'available' %}disabled{% endif %}>Borrow</button>
+</form></td></tr>
+{% else %}<tr><td colspan="6">No copies found.</td></tr>{% endfor %}
+</tbody></table>
+<p>Availability is checked again when you borrow. Reserved copies can be collected through My reservations.</p>
+{% endif %}
+<h2>My active loans</h2>
+<table class="data">
+<thead><tr><th>Book</th><th>Barcode</th><th>Borrowed</th><th>Due date</th><th>Return</th></tr></thead>
+<tbody>
+{% for loan in loans %}
+<tr><td>{{ loan.title }}</td><td>{{ loan.barcode }}</td><td>{{ loan.borrowed_at }}</td><td>{{ loan.due_at }}</td>
+<td><form method="post" action="{{ url_for('desk.return_copy') }}">
+<input type="hidden" name="barcode" value="{{ loan.barcode }}"><input type="hidden" name="q" value="{{ query }}">
+<button type="submit">Return</button></form></td></tr>
+{% else %}<tr><td colspan="5">You have no active loans.</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}

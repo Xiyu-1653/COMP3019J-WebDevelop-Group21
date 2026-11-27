@@ -23,9 +23,39 @@ class RouteTests(unittest.TestCase):
     def test_reader_cannot_invoke_librarian_mutations(self):
         self.login_session()
         with patch('app.blueprints.desk.load_circulation') as load:
-            for path in ['/desk/borrow','/desk/return','/desk/collect']:
-                with self.subTest(path=path): self.assertEqual(self.client.post(path).status_code,302)
+            for path in ['/desk/overdue/generate', '/desk/collect']:
+                self.assertEqual(self.client.post(path).status_code, 302)
             load.assert_not_called()
+
+    def test_self_service_uses_session_identity_for_every_category(self):
+        for category in ['undergraduate', 'postgraduate', 'teaching_staff']:
+            with self.subTest(category=category):
+                self.login_session()
+                with self.client.session_transaction() as s:
+                    s['reader_category'] = category
+                service = MagicMock()
+                with patch('app.blueprints.desk.load_circulation', return_value={'service': service}):
+                    self.client.post('/desk/borrow', data={'reader_id': '999', 'barcode': ' KB-1 '})
+                    service.self_borrow.assert_called_once_with(2, 'KB-1')
+                    service.borrow.assert_not_called()
+                    self.client.post('/desk/return', data={'reader_id': '999', 'barcode': ' KB-1 '})
+                    service.return_copy.assert_called_once_with('KB-1', reader_id=2)
+
+    def test_reader_desk_renders_search_and_own_loans(self):
+        self.login_session()
+        service = MagicMock()
+        service.reader_desk_context.return_value = {
+            'query': 'Algorithms', 'copies': [{'title': 'Algorithms', 'author': 'Author',
+            'barcode': 'KB-1', 'status': 'available', 'location': 'A1'}],
+            'loans': [{'title': 'My book', 'barcode': 'KB-2', 'borrowed_at': 'today', 'due_at': 'tomorrow'}],
+            'error': None, 'truncated': False}
+        with patch('app.blueprints.desk.load_circulation', return_value={'service': service}):
+            response = self.client.get('/desk?q=Algorithms&reader_id=999')
+        service.reader_desk_context.assert_called_once_with(2, 'Algorithms')
+        service.desk_context.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+        for text in [b'Self-service desk', b'KB-1', b'KB-2', b'Borrow', b'Return']:
+            self.assertIn(text, response.data)
 
     def test_login_success_and_role_destination(self):
         for role,destination in [('reader','/catalogue'),('librarian','/desk')]:
