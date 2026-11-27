@@ -13,7 +13,51 @@
     {% endif %}
     {% if current_user and current_user.role == "reader" %}
       <li><a href="{{ url_for('account.loans') }}">My loans</a></li>
+      <li><a href="{{ url_for('account.fees') }}">Fee history</a></li>
       <li><a href="{{ url_for('reservations.my_reservations') }}">Reservations</a>{% if modules.reservations %} — connected{% endif %}</li>
     {% endif %}
   </ul>
+
+  {% if recent_titles %}
+    <section class="home-section">
+      <h2>Recently added</h2>
+      <div class="book-grid book-grid--compact">
+        {% for t in recent_titles %}
+          <a class="book-card" href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">
+            {% if t.cover_url %}
+              <img class="book-cover" src="{{ t.cover_url }}" alt="Cover of {{ t.title }}" loading="lazy">
+            {% else %}
+              <div class="book-cover book-cover--placeholder" aria-hidden="true">No cover</div>
+            {% endif %}
+            <div class="book-card-body">
+              <h3 class="book-title">{{ t.title }}</h3>
+              <p class="book-author">{{ t.author }}</p>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if popular_titles %}
+    <section class="home-section">
+      <h2>Frequently borrowed</h2>
+      <div class="book-grid book-grid--compact">
+        {% for t in popular_titles %}
+          <a class="book-card" href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">
+            {% if t.cover_url %}
+              <img class="book-cover" src="{{ t.cover_url }}" alt="Cover of {{ t.title }}" loading="lazy">
+            {% else %}
+              <div class="book-cover book-cover--placeholder" aria-hidden="true">No cover</div>
+            {% endif %}
+            <div class="book-card-body">
+              <h3 class="book-title">{{ t.title }}</h3>
+              <p class="book-author">{{ t.author }}</p>
+              <p class="book-borrows">{{ t.borrow_count }} {{ 'loan' if t.borrow_count == 1 else 'loans' }}</p>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
 {% endblock %}

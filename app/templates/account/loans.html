@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}My loans · Know Book{% endblock %}
+{% block content %}
+  <h1>My loans</h1>
+  <p class="module-label">User &amp; Account Management</p>
+  <p>You can renew a current loan once, before it is overdue, if nobody is waiting for the title. Loan periods match the desk: 14 days for undergraduates, 30 for postgraduates and 60 for teaching staff.</p>
+  <p><a href="{{ url_for('account.fees') }}">Fee history</a></p>
+  {% if error %}
+    <p class="flash">Could not load your loans: {{ error }}</p>
+  {% endif %}
+
+  <h2>On loan</h2>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Book</th>
+        <th>Barcode</th>
+        <th>Borrowed</th>
+        <th>Due</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for loan in current_loans %}
+        <tr{% if loan.overdue %} class="is-overdue"{% endif %}>
+          <td>
+            <a href="{{ url_for('catalogue.title_detail', title_id=loan.title_id) }}">{{ loan.title }}</a>
+            <br>{{ loan.author }}
+          </td>
+          <td>{{ loan.barcode }}</td>
+          <td>{{ loan.borrowed_at }}</td>
+          <td>{{ loan.due_at }}</td>
+          <td class="{% if loan.overdue %}status-overdue{% endif %}">
+            {{ "Overdue" if loan.overdue else "On loan" }}
+            {% if loan.renewal_count %} · Renewed{% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('account.renew_loan', loan_id=loan.loan_id) }}">
+              {% if loan.can_renew %}
+                <button type="submit">Renew</button>
+              {% else %}
+                <button type="submit" disabled title="{{ loan.renew_blocked_reason }}">Renew</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">You have no books on loan.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Past loans</h2>
+  <table class="data">
+    <thead>
+      <tr>
+        <th>Book</th>
+        <th>Barcode</th>
+        <th>Borrowed</th>
+        <th>Due</th>
+        <th>Returned</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for loan in past_loans %}
+        <tr>
+          <td>
+            <a href="{{ url_for('catalogue.title_detail', title_id=loan.title_id) }}">{{ loan.title }}</a>
+            <br>{{ loan.author }}
+          </td>
+          <td>{{ loan.barcode }}</td>
+          <td>{{ loan.borrowed_at }}</td>
+          <td>{{ loan.due_at }}</td>
+          <td>{{ loan.returned_at }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5">You have no past loans.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

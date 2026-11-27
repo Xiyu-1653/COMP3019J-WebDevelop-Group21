@@ -3,29 +3,68 @@
 {% block content %}
   {% if title %}
     <h1>{{ title.title }}</h1>
+
     {% if title.cover_url %}
-      <p><img class="cover" src="{{ title.cover_url }}" alt="{{ title.title }}"></p>
+      <img class="cover" src="{{ title.cover_url }}" alt="Cover of {{ title.title }}">
+    {% else %}
+      <div class="cover cover--placeholder" aria-hidden="true">No cover</div>
     {% endif %}
-    <p class="module-label">{{ title.author }} · {{ title.category }}</p>
-    <p>ISBN {{ title.isbn }}. Available {{ title.available_copies }} / {{ title.total_copies }}.</p>
-    <p>{{ title.description or "No description." }}</p>
+
+    <dl class="title-meta">
+      <dt>Author</dt><dd>{{ title.author }}</dd>
+      <dt>ISBN</dt><dd>{{ title.isbn }}</dd>
+      <dt>Category</dt><dd>{{ title.category }}</dd>
+      <dt>Digital version</dt><dd>{{ 'Available' if title.has_digital_version else 'Not available' }}</dd>
+      <dt>Physical copies</dt>
+      <dd>{{ title.total_copies }} total · {{ title.available_copies }} available</dd>
+    </dl>
+
+    <p class="description">{{ title.description or "No description." }}</p>
+
     <h2>Physical copies</h2>
     <table class="data">
-      <thead><tr><th>Barcode</th><th>Status</th><th>Location</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Copy ID</th><th>Barcode</th><th>Status</th><th>Location</th>
+          {% if current_user and current_user.role == 'librarian' %}<th>Action</th>{% endif %}
+        </tr>
+      </thead>
       <tbody>
         {% for c in copies %}
           <tr>
+            <td>{{ c.copy_id }}</td>
             <td>{{ c.barcode }}</td>
-            <td>{{ c.status }}</td>
+            <td>{{ c.status | replace('_', ' ') | capitalize }}</td>
             <td>{{ c.location or "—" }}</td>
+            {% if current_user and current_user.role == 'librarian' %}
+              <td>
+                {% if c.status in ('available', 'damaged', 'lost', 'under_repair') %}
+                  <form class="inline-form" method="post" action="{{ url_for('catalogue.update_copy_status', copy_id=c.copy_id) }}">
+                    <input type="hidden" name="title_id" value="{{ title.title_id }}">
+                    <select name="status" data-location-target="location-copy-{{ c.copy_id }}">
+                      <option value="available" {{ 'selected' if c.status == 'available' }}>Available</option>
+                      <option value="damaged" {{ 'selected' if c.status == 'damaged' }}>Damaged</option>
+                      <option value="lost" {{ 'selected' if c.status == 'lost' }}>Lost</option>
+                      <option value="under_repair" {{ 'selected' if c.status == 'under_repair' }}>Under repair</option>
+                    </select>
+                    <input name="location" id="location-copy-{{ c.copy_id }}" value="{{ c.location or '' }}" placeholder="A-01-01">
+                    <button type="submit">Update</button>
+                  </form>
+                {% else %}
+                  <span class="module-label">On loan / reserved</span>
+                {% endif %}
+              </td>
+            {% endif %}
           </tr>
         {% else %}
-          <tr><td colspan="3">No physical copies registered.</td></tr>
+          <tr><td colspan="{{ 5 if current_user and current_user.role == 'librarian' else 4 }}">No physical copies registered.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   {% else %}
     <h1>Title not found</h1>
+    <p>The book you requested does not exist in the catalogue.</p>
   {% endif %}
   <p><a href="{{ url_for('catalogue.index') }}">Back to catalogue</a></p>
+  <script src="{{ url_for('static', filename='catalogue.js') }}" defer></script>
 {% endblock %}

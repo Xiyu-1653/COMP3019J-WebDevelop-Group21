@@ -92,7 +92,8 @@ git merge main
 Then run the same app as everyone else. Do not start a second Flask app.
 
 ```powershell
-python -m flask --app app run --debug
+
+
 ```
 
 Open http://127.0.0.1:5000/ . The home page shows **connected** next to a module when its package is present on this branch. Other modules stay as placeholders.

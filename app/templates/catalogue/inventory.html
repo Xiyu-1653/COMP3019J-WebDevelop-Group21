@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Inventory · Know Book{% endblock %}
+{% block content %}
+  <h1>Inventory</h1>
+  <p class="module-label">Librarian tools · Catalogue Management</p>
+  {% if error %}<p class="flash">{{ error }}</p>{% endif %}
+
+  <section class="home-section">
+    <h2>Add a title</h2>
+    <form method="post" action="{{ url_for('catalogue.create_title') }}" class="login-form">
+      <label>ISBN <input name="isbn" required></label>
+      <label>Title <input name="title" required></label>
+      <label>Author <input name="author" required></label>
+      <label>Category <input name="category" required list="category-options"></label>
+      <datalist id="category-options">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+      <label>Description <textarea name="description" rows="3"></textarea></label>
+      <label>
+        Cover URL
+        <input name="cover_url" placeholder="/static/covers/9780132350884.jpg">
+        <small class="hint">Name the file by its ISBN, e.g. /static/covers/9780132350884.jpg. Leave blank for a no-cover placeholder.</small>
+      </label>
+      <label class="check"><input type="checkbox" name="has_digital_version" value="1"> Has digital version</label>
+      <button type="submit">Add title</button>
+    </form>
+  </section>
+
+  <section class="home-section">
+    <h2>Register a copy</h2>
+    <form method="post" action="{{ url_for('catalogue.create_copy') }}" class="login-form">
+      <label>
+        Title
+        <input name="title" value="{{ copy_title }}" required list="title-options" placeholder="Clean Code">
+        <small class="hint">Matches an existing title name (case-insensitive). Add the title first if it does not exist.</small>
+      </label>
+      <datalist id="title-options">{% for t in titles %}<option value="{{ t.title }}">{% endfor %}</datalist>
+      <label>
+        Barcode
+        <input name="barcode" value="{{ copy_barcode }}" placeholder="KB-0228">
+        <small class="hint">Leave blank to auto-generate the next KB-XXXX number.</small>
+      </label>
+      <label>
+        Status
+        <select name="status" data-location-target="copy-location">
+          <option value="available" {{ 'selected' if copy_status == 'available' }}>Available</option>
+          <option value="damaged" {{ 'selected' if copy_status == 'damaged' }}>Damaged</option>
+          <option value="lost" {{ 'selected' if copy_status == 'lost' }}>Lost</option>
+          <option value="under_repair" {{ 'selected' if copy_status == 'under_repair' }}>Under repair</option>
+        </select>
+      </label>
+      <label>
+        Location
+        <input name="location" id="copy-location" value="{{ copy_location }}" placeholder="A-01-01">
+        <small class="hint">Shelf location, e.g. A-01-01 (section-shelf-position). Auto-filled for damaged, lost or under repair.</small>
+      </label>
+      <button type="submit">Register copy</button>
+    </form>
+  </section>
+
+  <section class="home-section">
+    <h2>Titles ({{ titles|length }})</h2>
+    <table class="data">
+      <thead><tr><th>ID</th><th>Title</th><th>Author</th><th>Category</th><th>Available</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for t in titles %}
+          <tr>
+            <td>{{ t.title_id }}</td>
+            <td><a href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">{{ t.title }}</a></td>
+            <td>{{ t.author }}</td>
+            <td>{{ t.category }}</td>
+            <td>{{ t.available_copies }} / {{ t.total_copies }}</td>
+            <td>
+              <a href="{{ url_for('catalogue.edit_title', title_id=t.title_id) }}">Edit</a> ·
+              <a href="{{ url_for('catalogue.title_detail', title_id=t.title_id) }}">Copies</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6">No titles in the catalogue.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <script src="{{ url_for('static', filename='catalogue.js') }}" defer></script>
+{% endblock %}
