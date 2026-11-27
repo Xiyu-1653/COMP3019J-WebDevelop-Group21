@@ -1,34 +1,65 @@
 {% extends "base.html" %}
 {% block title %}My reservations · Know Book{% endblock %}
 {% block content %}
-  <h1>My reservations</h1>
+  <div class="reservation-heading">
+    <h1>My reservations</h1>
+    {% if has_active %}
+      <button type="button" class="icon-button" id="reservation-edit-toggle"
+              aria-pressed="false" title="Edit reservations">✎ Edit</button>
+    {% endif %}
+  </div>
   <p class="module-label">Reservation &amp; Inventory Management</p>
   {% if error %}
     <p class="flash">{{ error }}</p>
   {% endif %}
-  <table class="data">
-    <thead>
-      <tr><th>Book</th><th>Reserved at</th><th>Status</th><th>Queue position / deadline</th></tr>
-    </thead>
-    <tbody>
-      {% for row in reservation_rows %}
-        <tr>
-          <td>{{ row.title }}<br>{{ row.author }}</td>
-          <td>{{ row.reserved_at }}</td>
-          <td>{{ row.status|capitalize }}</td>
-          <td>
-            {% if row.status == 'waiting' %}
-              Position {{ row.queue_position }}
-            {% elif row.status == 'ready' %}
-              Collect by {{ row.collect_deadline }}
-            {% else %}
-              —
-            {% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="4">You have no reservations yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+
+  <form id="reservation-cancel-form" method="post"
+        action="{{ url_for('reservations.cancel_selected') }}">
+    <div id="reservation-list" class="reservation-list">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="select-col">Select</th>
+            <th>Book</th>
+            <th>Reserved at</th>
+            <th>Status</th>
+            <th>Queue position / deadline</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in reservation_rows %}
+            <tr>
+              <td class="select-col">
+                {% if row.status in ('waiting', 'ready') %}
+                  <input type="checkbox" name="reservation_ids"
+                         value="{{ row.reservation_id }}" class="reservation-select"
+                         aria-label="Select {{ row.title }}">
+                {% endif %}
+              </td>
+              <td>{{ row.title }}<br>{{ row.author }}</td>
+              <td>{{ row.reserved_at }}</td>
+              <td>{{ row.status|capitalize }}</td>
+              <td>
+                {% if row.status == 'waiting' %}
+                  Position {{ row.queue_position }}
+                {% elif row.status == 'ready' %}
+                  Collect by {{ row.collect_deadline }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5">You have no reservations yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="edit-actions">
+        <button type="submit" id="reservation-cancel-button" disabled>Cancel selected</button>
+      </div>
+    </div>
+  </form>
+
+  <script src="{{ url_for('static', filename='reservations.js') }}" defer></script>
 {% endblock %}

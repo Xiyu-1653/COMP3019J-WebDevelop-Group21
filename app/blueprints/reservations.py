@@ -48,9 +48,13 @@ def my_reservations():
     except Exception as exc:
         error = str(exc)
 
+    has_active = any(
+        row["status"] in ("waiting", "ready") for row in reservation_rows
+    )
     return render_template(
         "reservations/index.html",
         reservation_rows=reservation_rows,
+        has_active=has_active,
         error=error,
     )
 
@@ -118,10 +122,49 @@ def place_hold(title_id):
     return redirect(url_for("catalogue.title_detail", title_id=title_id))
 
 
+def _cancel_reservations(reservation_ids):
+    """Cancel the signed-in reader's reservations in one transaction."""
+    reservations = load_reservations()
+    if reservations is None:
+        flash("Cancelling a reservation is not implemented yet.")
+        return
+    if session.get("role") != "reader":
+        flash("Reservations belong to reader accounts.")
+        return
+    try:
+        with reservations["connect"]() as connection, connection.cursor() as cursor:
+            for reservation_id in reservation_ids:
+                reservations["collection"].cancel_reservation(
+                    cursor, reservation_id, session["user_id"]
+                )
+            connection.commit()
+    except Exception as exc:
+        flash(str(exc))
+        return
+    flash(f"Cancelled {len(reservation_ids)} reservation(s).")
+
+
+@reservations_bp.post("/reservations/cancel")
+@login_required
+def cancel_selected():
+    raw_ids = request.form.getlist("reservation_ids")
+    reservation_ids = []
+    for value in raw_ids:
+        try:
+            reservation_ids.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    if not reservation_ids:
+        flash("Select at least one reservation to cancel.")
+        return redirect(url_for("reservations.my_reservations"))
+    _cancel_reservations(reservation_ids)
+    return redirect(url_for("reservations.my_reservations"))
+
+
 @reservations_bp.post("/reservations/<int:reservation_id>/cancel")
 @login_required
 def cancel(reservation_id):
-    flash("Cancelling a reservation is not implemented yet.")
+    _cancel_reservations([reservation_id])
     return redirect(url_for("reservations.my_reservations"))
 
 

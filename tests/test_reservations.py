@@ -74,6 +74,43 @@ class ReservationTests(unittest.TestCase):
             with self.assertRaises(collection.ReservationError): collection.collect_reservation(c,7,1,14)
         self.assertEqual(c.execute.call_count,1)
 
+    def test_cancel_waiting_reservation(self):
+        c=MagicMock()
+        c.fetchone.return_value={
+            'reservation_id':5,'reader_id':2,'status':'waiting','allocated_copy_id':None,
+        }
+        collection.cancel_reservation(c,5,2)
+        sql=' '.join(x.args[0] for x in c.execute.call_args_list)
+        self.assertIn("status = 'cancelled'",sql)
+        self.assertNotIn("UPDATE copy",sql)
+
+    def test_cancel_ready_reservation_releases_and_reallocs(self):
+        c=MagicMock()
+        c.fetchone.side_effect=[
+            {'reservation_id':5,'reader_id':2,'status':'ready','allocated_copy_id':4},
+            {'status':'reserved'},
+        ]
+        with patch.object(collection,'allocate_available_copy') as allocate:
+            collection.cancel_reservation(c,5,2)
+        allocate.assert_called_once_with(c,4)
+        sql=' '.join(x.args[0] for x in c.execute.call_args_list)
+        self.assertIn("status = 'cancelled'",sql)
+        self.assertIn("UPDATE copy SET status = 'available'",sql)
+
+    def test_cancel_rejects_other_reader_and_closed_status(self):
+        c=MagicMock()
+        c.fetchone.return_value={
+            'reservation_id':5,'reader_id':3,'status':'waiting','allocated_copy_id':None,
+        }
+        with self.assertRaisesRegex(collection.ReservationError,'own'):
+            collection.cancel_reservation(c,5,2)
+        c=MagicMock()
+        c.fetchone.return_value={
+            'reservation_id':5,'reader_id':2,'status':'fulfilled','allocated_copy_id':None,
+        }
+        with self.assertRaisesRegex(collection.ReservationError,'cancelled'):
+            collection.cancel_reservation(c,5,2)
+
     def test_expiration_requires_configuration(self):
         c=MagicMock(); c.fetchone.return_value=None
         with self.assertRaises(ValueError): expiration.process_expired_reservations(c)

@@ -90,6 +90,22 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(response.status_code,302)
         self.assertIn('/desk/reservations',response.location)
 
+    def test_reader_can_cancel_selected_reservations(self):
+        self.login_session()
+        connection=MagicMock()
+        cursor=MagicMock()
+        connection.__enter__.return_value=connection
+        connection.cursor.return_value.__enter__.return_value=cursor
+        service=MagicMock()
+        with patch('app.blueprints.reservations.load_reservations',
+                   return_value={'connect':MagicMock(return_value=connection),
+                                 'collection':service}):
+            response=self.client.post('/reservations/cancel',
+                                      data={'reservation_ids':['1','2']})
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(service.cancel_reservation.call_count,2)
+        connection.commit.assert_called_once()
+
 
 class CatalogueRouteTests(unittest.TestCase):
     def setUp(self):
